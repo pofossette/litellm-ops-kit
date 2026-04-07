@@ -30,11 +30,11 @@ services:
       - --config
       - /app/config.yaml
       - --port
-      - "4000"
+      - "${LITELLM_PORT:-4000}"
       - --host
       - 0.0.0.0
     ports:
-      - "${LITELLM_PORT:-4000}:4000"
+      - "${LITELLM_PORT:-4000}:${LITELLM_PORT:-4000}"
     volumes:
       - ./litellm/config.yaml:/app/config.yaml:ro
 

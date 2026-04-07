@@ -4,6 +4,7 @@
 PROXY_DIR="$PROJECT_DIR/proxy"
 NGINX_DIR="$PROXY_DIR/nginx"
 NGINX_CONFIG_FILE="$NGINX_DIR/default.conf"
+PROXY_CERTS_DIR="$PROXY_DIR/certs"
 
 proxy_type_label() {
   case "${1:-none}" in
@@ -39,6 +40,41 @@ proxy_forwarded_port() {
 
 proxy_backend_port() {
   printf '%s' "${LITELLM_PORT:-4000}"
+}
+
+proxy_external_base_url() {
+  printf '%s' "${PROXY_BASE_URL:-}"
+}
+
+proxy_resolve_export_target() {
+  local target="${1:-}"
+  local base_url host port
+
+  if [[ -n "$target" ]]; then
+    printf '%s' "$target"
+    return 0
+  fi
+
+  base_url="$(proxy_external_base_url)"
+  if [[ -z "$base_url" ]]; then
+    return 1
+  fi
+
+  if [[ "$base_url" =~ ^https?://([^/:]+)(:([0-9]+))?(/.*)?$ ]]; then
+    host="${BASH_REMATCH[1]}"
+    port="${BASH_REMATCH[3]}"
+    if [[ -z "$port" ]]; then
+      if [[ "$base_url" =~ ^https:// ]]; then
+        port="443"
+      else
+        port="80"
+      fi
+    fi
+    printf '%s:%s' "$host" "$port"
+    return 0
+  fi
+
+  return 1
 }
 
 proxy_status() {
@@ -79,6 +115,10 @@ validate_proxy_config() {
       return 0
       ;;
     external|nginx)
+      if [[ ! "$(proxy_backend_port)" =~ ^[0-9]+$ ]]; then
+        ui_error "LITELLM_PORT must be numeric in $ENV_FILE"
+        exit 1
+      fi
       if [[ ! "$(proxy_listen_port)" =~ ^[0-9]+$ ]]; then
         ui_error "PROXY_LISTEN_PORT must be numeric in $ENV_FILE"
         exit 1
@@ -100,10 +140,11 @@ validate_proxy_config() {
 }
 
 render_nginx_proxy_config() {
-  local listen_port forward_proto forward_port
+  local listen_port forward_proto forward_port backend_port
   listen_port="$(proxy_listen_port)"
   forward_proto="$(proxy_forwarded_proto)"
   forward_port="$(proxy_forwarded_port)"
+  backend_port="$(proxy_backend_port)"
 
   mkdir -p "$NGINX_DIR"
 
@@ -128,7 +169,7 @@ server {
     server_name _;
 
     location / {
-        proxy_pass http://litellm:4000;
+        proxy_pass http://litellm:${backend_port};
         proxy_http_version 1.1;
 
         proxy_set_header Host \$http_host;
@@ -137,6 +178,7 @@ server {
         proxy_set_header X-Forwarded-Host \$http_host;
         proxy_set_header X-Forwarded-Proto \$litellm_forwarded_proto;
         proxy_set_header X-Forwarded-Port \$litellm_forwarded_port;
+        proxy_redirect http://\$http_host/ \$litellm_forwarded_proto://\$http_host/;
 
         proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection \$connection_upgrade;
@@ -253,16 +295,23 @@ cmd_proxy_configure() {
       ui_header "External Proxy Guide"
       ui_code "当前模式不会启动任何代理容器。"
       ui_code "你需要自己维护反代，并把它转发到 LiteLLM 的 $(proxy_backend_port) 端口。"
-      ui_code "主流程只需要配置 nginx监听端口。litellm监听端口 自动使用 $(proxy_backend_port)。"
-      local listen_port confirm
-      listen_port="$(prompt_port_value "nginx监听端口" "$(env_get "PROXY_LISTEN_PORT")" "8080")"
+      ui_code "主流程需要配置 nginx监听端口 和 litellm监听端口。"
+      local listen_port backend_port confirm
+      while true; do
+        listen_port="$(prompt_port_value "nginx监听端口" "$(env_get "PROXY_LISTEN_PORT")" "8080")"
+        backend_port="$(prompt_port_value "litellm监听端口" "$(env_get "LITELLM_PORT")" "4000")"
+        if [[ "$listen_port" != "$backend_port" ]]; then
+          break
+        fi
+        ui_warning "nginx监听端口 不能和 litellm监听端口 ${backend_port} 相同。"
+      done
       echo ""
       ui_section "Pending Proxy Config"
       ui_kv "Type"   "external"
       ui_kv "nginx监听端口" "${listen_port}"
-      ui_kv "litellm监听端口" "$(proxy_backend_port)"
+      ui_kv "litellm监听端口" "${backend_port}"
       ui_kv "Proto"  "$(env_get "PROXY_FORWARD_PROTO" | sed 's/^$/https/')"
-      ui_kv "Next"   "你自己配置反代 -> litellm:$(proxy_backend_port)"
+      ui_kv "Next"   "你自己配置反代 -> litellm:${backend_port}"
       read -rp "Apply proxy changes? [Y/n]: " confirm
       confirm="${confirm:-Y}"
       if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
@@ -272,30 +321,32 @@ cmd_proxy_configure() {
       env_batch_begin
       env_batch_set "PROXY_TYPE" "external"
       env_batch_set "PROXY_LISTEN_PORT" "$listen_port"
+      env_batch_set "LITELLM_PORT" "$backend_port"
       env_batch_set "PROXY_FORWARD_PROTO" "${PROXY_FORWARD_PROTO:-https}"
       env_batch_set "PROXY_FORWARD_PORT" ""
       env_batch_apply
-      ui_info "Proxy service remains user-managed. Configure it yourself to forward to LiteLLM on 4000."
+      ui_info "Proxy service remains user-managed. Configure it yourself to forward to LiteLLM on ${backend_port}."
       ui_success "External reverse proxy metadata updated."
       ;;
     nginx)
       ui_header "Managed Nginx Guide"
       ui_code "推荐链路: 浏览器 -> SakuraFRP -> nginx:8080 -> litellm:$(proxy_backend_port)"
-      ui_code "主流程只需要配置 nginx监听端口。litellm监听端口 自动使用 $(proxy_backend_port)。"
-      local listen_port confirm
+      ui_code "主流程需要配置 nginx监听端口 和 litellm监听端口。"
+      local listen_port backend_port confirm
       while true; do
         listen_port="$(prompt_port_value "nginx监听端口" "$(env_get "PROXY_LISTEN_PORT")" "8080")"
-        if [[ "$listen_port" != "$(proxy_backend_port)" ]]; then
+        backend_port="$(prompt_port_value "litellm监听端口" "$(env_get "LITELLM_PORT")" "4000")"
+        if [[ "$listen_port" != "$backend_port" ]]; then
           break
         fi
-        ui_warning "nginx监听端口 不能和 litellm监听端口 $(proxy_backend_port) 相同。"
+        ui_warning "nginx监听端口 不能和 litellm监听端口 ${backend_port} 相同。"
       done
       echo ""
       ui_section "Pending Proxy Config"
       ui_kv "Type"    "nginx"
       ui_kv "nginx监听端口"  "${listen_port}"
-      ui_kv "litellm监听端口" "$(proxy_backend_port)"
-      ui_kv "Forward" "litellm:$(proxy_backend_port)"
+      ui_kv "litellm监听端口" "${backend_port}"
+      ui_kv "Forward" "litellm:${backend_port}"
       ui_kv "Proto"   "${PROXY_FORWARD_PROTO:-https}"
       ui_kv "FRP"     "把 SakuraFRP 本地目标端口改成 ${listen_port}"
       read -rp "Apply proxy changes? [Y/n]: " confirm
@@ -307,6 +358,7 @@ cmd_proxy_configure() {
       env_batch_begin
       env_batch_set "PROXY_TYPE" "nginx"
       env_batch_set "PROXY_LISTEN_PORT" "$listen_port"
+      env_batch_set "LITELLM_PORT" "$backend_port"
       env_batch_set "PROXY_FORWARD_PROTO" "${PROXY_FORWARD_PROTO:-https}"
       env_batch_set "PROXY_FORWARD_PORT" ""
       env_batch_apply
@@ -341,6 +393,57 @@ cmd_proxy_render() {
   ui_success "Rendered reverse proxy config."
 }
 
+cmd_proxy_export_cert() {
+  ensure_env_file
+  load_env
+
+  local target="${1:-}"
+  local output_path="${2:-}"
+  local resolved_target host port default_output tmp_file
+
+  if ! resolved_target="$(proxy_resolve_export_target "$target")"; then
+    ui_error "Missing target. Use: ./manage.sh proxy export-cert <host:port> [output.crt]"
+    ui_info "Or set PROXY_BASE_URL in .env so the script can infer the external host and port."
+    return 1
+  fi
+
+  if [[ ! "$resolved_target" =~ ^([^:]+):([0-9]+)$ ]]; then
+    ui_error "Invalid target: $resolved_target"
+    ui_info "Expected format: host:port"
+    return 1
+  fi
+
+  host="${BASH_REMATCH[1]}"
+  port="${BASH_REMATCH[2]}"
+
+  mkdir -p "$PROXY_CERTS_DIR"
+  default_output="$PROXY_CERTS_DIR/${host}-${port}.crt"
+  output_path="${output_path:-$default_output}"
+  tmp_file="$(mktemp)"
+
+  if ! echo | openssl s_client -connect "${host}:${port}" -servername "$host" 2>/dev/null \
+    | sed -n '/BEGIN CERTIFICATE/,/END CERTIFICATE/p' >"$tmp_file"; then
+    rm -f "$tmp_file"
+    ui_error "Failed to connect to ${host}:${port}"
+    return 1
+  fi
+
+  if [[ ! -s "$tmp_file" ]]; then
+    rm -f "$tmp_file"
+    ui_error "No certificate was returned by ${host}:${port}"
+    return 1
+  fi
+
+  mv "$tmp_file" "$output_path"
+
+  ui_success "Certificate exported."
+  ui_kv "Target" "${host}:${port}"
+  ui_kv "Output" "$output_path"
+  ui_info "Install it on Debian/Ubuntu with:"
+  ui_code "sudo cp '$output_path' /usr/local/share/ca-certificates/$(basename "$output_path")"
+  ui_code "sudo update-ca-certificates"
+}
+
 cmd_proxy_help() {
   ui_header "Usage: ./manage.sh proxy <command>"
   echo ""
@@ -350,7 +453,11 @@ cmd_proxy_help() {
   ui_table_row "configure" 14 "先探测再配置 external/nginx" 40
   ui_table_row "disable" 14 "禁用反向代理" 40
   ui_table_row "render" 14 "重新渲染代理配置文件" 40
+  ui_table_row "export-cert" 14 "导出外部 HTTPS 入口证书" 40
   echo ""
+  ui_code "./manage.sh proxy export-cert frp-put.com:33745"
+  ui_code "./manage.sh proxy export-cert frp-put.com:33745 /tmp/sakurafrp.crt"
+  ui_code "./manage.sh proxy export-cert   # 从 PROXY_BASE_URL 自动推断"
 }
 
 show_proxy_menu() {
@@ -362,6 +469,7 @@ show_proxy_menu() {
   ui_menu_item "2" "configure" "选择并配置代理"
   ui_menu_item "3" "disable"   "禁用代理"
   ui_menu_item "4" "render"    "重新生成代理配置"
+  ui_menu_item "5" "export-cert" "导出外部 HTTPS 证书"
   ui_menu_item "0" "back"      "返回主菜单"
   ui_divider '-' 52
   echo ""
@@ -374,12 +482,13 @@ proxy_menu() {
     print_proxy_summary
     echo ""
     local choice
-    choice="$(prompt_choice "Select an option [0-4]: " '^[0-4]$')"
+    choice="$(prompt_choice "Select an option [0-5]: " '^[0-5]$')"
     case "$choice" in
       1) cmd_proxy_list ;;
       2) cmd_proxy_configure ;;
       3) cmd_proxy_disable ;;
       4) cmd_proxy_render ;;
+      5) cmd_proxy_export_cert ;;
       0) return 0 ;;
     esac
     echo ""
@@ -393,6 +502,7 @@ cmd_proxy() {
     configure) cmd_proxy_configure ;;
     disable) cmd_proxy_disable ;;
     render) cmd_proxy_render ;;
+    export-cert) shift; cmd_proxy_export_cert "$@" ;;
     help|-h|--help) cmd_proxy_help ;;
     *)
       ui_error "Unknown proxy command: $action"

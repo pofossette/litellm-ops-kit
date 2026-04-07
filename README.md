@@ -142,6 +142,7 @@ export OPENAI_API_KEY=<LITELLM_MASTER_KEY>
 ./manage.sh logs               # 查看日志
 ./manage.sh proxy configure    # 配置反向代理
 ./manage.sh proxy list         # 查看反向代理状态
+./manage.sh proxy export-cert  # 导出外部 HTTPS 入口证书
 ./manage.sh enable-autostart   # 启用开机自启 (systemd)
 ./manage.sh disable-autostart  # 禁用开机自启
 ```
@@ -172,4 +173,6 @@ export OPENAI_API_KEY=<LITELLM_MASTER_KEY>
 - 项目现在内置了可选的反向代理层，先支持 `nginx`，同时支持 `external` 自管模式，通过 `./manage.sh proxy configure` 统一配置。
 - `proxy configure` 会先探测当前机器上是否已有 `nginx/caddy/traefik/haproxy/apache` 等反代进程或容器；如果你已经自行启用了反代，选 `external` 即可，脚本不会接管该服务。
 - 启用代理后，主流程只需要两个端口：`nginx监听端口` 是本机代理监听端口，`litellm监听端口` 自动使用 LiteLLM 的 `LITELLM_PORT`。
+- 针对 SakuraFRP 这类“外层 HTTPS 终止、本机明文 HTTP 反代”的场景，内置 nginx 模板会重写 LiteLLM 返回的绝对 `Location` 跳转，避免 `/ui/login` 之类的尾斜杠跳转被错误降成 `http://...` 后再被 FRP 侧拒绝。
 - 建议把 `sakurafrp` 的本地目标端口改为 `nginx监听端口`。例如：LiteLLM 监听 `4000`，Nginx 监听 `8080`，则 FRP 本地目标填 `8080`。
+- 如果外部入口使用自签证书，可运行 `./manage.sh proxy export-cert <host:port>` 导出证书；若 `.env` 中已设置 `PROXY_BASE_URL`，也可以直接运行 `./manage.sh proxy export-cert` 自动推断目标地址，默认输出到 `proxy/certs/`。

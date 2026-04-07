@@ -55,6 +55,7 @@ cmd_help() {
   ui_code "./manage.sh provider render"
   ui_code "./manage.sh proxy configure"
   ui_code "./manage.sh proxy list"
+  ui_code "./manage.sh proxy export-cert [host:port] [output.crt]"
   echo ""
 }
 
