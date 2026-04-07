@@ -1,8 +1,39 @@
 services:
+  jdcloud-anthropic-shim:
+    image: python:3.11-slim
+    container_name: litellm-jdcloud-anthropic-shim
+    restart: unless-stopped
+    env_file:
+      - .env
+    command:
+      - python3
+      - /app/jdcloud_anthropic_shim.py
+    volumes:
+      - ./proxy/jdcloud_anthropic_shim.py:/app/jdcloud_anthropic_shim.py:ro
+
+  anthropic-router:
+    image: python:3.11-slim
+    container_name: litellm-anthropic-router
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      - litellm
+      - jdcloud-anthropic-shim
+    command:
+      - python3
+      - /app/anthropic_router.py
+    ports:
+      - "${ANTHROPIC_ROUTER_PORT:-4001}:4001"
+    volumes:
+      - ./proxy/anthropic_router.py:/app/anthropic_router.py:ro
+
   litellm:
     image: ghcr.io/berriai/litellm:main-stable
     container_name: litellm-ops-kit
     restart: unless-stopped
+    depends_on:
+      - jdcloud-anthropic-shim
     env_file:
       - .env
     command:

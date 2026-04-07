@@ -12,6 +12,7 @@ show_raw_cmd() {
 print_startup_info() {
   load_env
   local port="${LITELLM_PORT:-4000}"
+  local anthropic_port="${ANTHROPIC_ROUTER_PORT:-4001}"
   local autostart_state="disabled"
   local host_ip
   host_ip="$(hostname -I 2>/dev/null | awk '{print $1}')"
@@ -26,9 +27,11 @@ print_startup_info() {
   ui_header "Service Started  (mode: ${mode})"
 
   ui_section "Gateway"
-  ui_kv "Local"    "http://127.0.0.1:${port}"
-  ui_kv "LAN"      "http://${host_ip}:${port}"
-  ui_kv "Admin UI" "http://${host_ip}:${port}/ui"
+  ui_kv "Anthropic Local" "http://127.0.0.1:${anthropic_port}"
+  ui_kv "Anthropic LAN"   "http://${host_ip}:${anthropic_port}"
+  ui_kv "LiteLLM Local"   "http://127.0.0.1:${port}"
+  ui_kv "LiteLLM LAN"     "http://${host_ip}:${port}"
+  ui_kv "Admin UI"        "http://${host_ip}:${port}/ui"
   ui_kv "Login"    "用户名: ${UI_USERNAME:-admin} / 密码: ${UI_PASSWORD:-<check .env>}"
 
   if proxy_enabled; then
@@ -49,7 +52,7 @@ print_startup_info() {
   for level in "${!ROUTES[@]}"; do route_chain_summary "$level"; done
 
   ui_section "Claude Code env"
-  ui_code "export ANTHROPIC_BASE_URL=http://${host_ip}:${port}"
+  ui_code "export ANTHROPIC_BASE_URL=http://${host_ip}:${anthropic_port}"
   ui_code "export ANTHROPIC_AUTH_TOKEN=${LITELLM_MASTER_KEY}"
   ui_code "export ANTHROPIC_DEFAULT_OPUS_MODEL=my-opus"
   ui_code "export ANTHROPIC_DEFAULT_SONNET_MODEL=my-sonnet"
@@ -201,9 +204,11 @@ cmd_logs() {
 cmd_quickstart() {
   load_env
   local port="${LITELLM_PORT:-4000}"
+  local anthropic_port="${ANTHROPIC_ROUTER_PORT:-4001}"
   local host_ip
   host_ip="$(hostname -I 2>/dev/null | awk '{print $1}')"
   local api_url="http://${host_ip}:${port}"
+  local anthropic_url="http://${host_ip}:${anthropic_port}"
   local current_mode
   current_mode="$(get_mode)"
 
@@ -213,9 +218,10 @@ cmd_quickstart() {
   ui_divider '-' 52
 
   ui_section "Endpoints"
-  ui_kv "Web Panel"    "${api_url}/ui"
-  ui_kv "API Endpoint" "${api_url}"
-  ui_kv "API Key"      "${LITELLM_MASTER_KEY}"
+  ui_kv "Anthropic Router" "${anthropic_url}"
+  ui_kv "Web Panel"        "${api_url}/ui"
+  ui_kv "OpenAI / LiteLLM" "${api_url}"
+  ui_kv "API Key"          "${LITELLM_MASTER_KEY}"
 
   if proxy_enabled; then
     local proxy_port proxy_url
@@ -246,7 +252,7 @@ cmd_quickstart() {
 
   ui_section "Claude Code 配置"
   ui_dotted_divider 46
-  ui_code "export ANTHROPIC_BASE_URL=${api_url}"
+  ui_code "export ANTHROPIC_BASE_URL=${anthropic_url}"
   ui_code "export ANTHROPIC_AUTH_TOKEN=${LITELLM_MASTER_KEY}"
   ui_code "export ANTHROPIC_DEFAULT_OPUS_MODEL=my-opus"
   ui_code "export ANTHROPIC_DEFAULT_SONNET_MODEL=my-sonnet"

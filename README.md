@@ -8,6 +8,9 @@
 Claude Code / 客户端
         │
   ▼
+  Anthropic Router (:4001)
+        │
+        ▼
   LiteLLM Gateway (:4000)
      ┌────┴────┐
      ▼         ▼
@@ -52,7 +55,8 @@ vim .env
 
 ```bash
 # ── 通用 ──
-LITELLM_PORT=4000                    # 网关监听端口
+LITELLM_PORT=4000                    # LiteLLM / OpenAI / UI 端口
+ANTHROPIC_ROUTER_PORT=4001           # Anthropic 外层路由端口
 LITELLM_MASTER_KEY=sk-xxx            # 网关认证密钥
 
 # ── 主 provider ──
@@ -122,12 +126,16 @@ FALLBACK3_HAIKU_MODEL=
 ### Claude Code
 
 ```bash
-export ANTHROPIC_BASE_URL=http://<HOST>:4000
+export ANTHROPIC_BASE_URL=http://<HOST>:4001
 export ANTHROPIC_AUTH_TOKEN=<LITELLM_MASTER_KEY>
 export ANTHROPIC_DEFAULT_OPUS_MODEL=my-opus
 export ANTHROPIC_DEFAULT_SONNET_MODEL=my-sonnet
 export ANTHROPIC_DEFAULT_HAIKU_MODEL=my-haiku
 ```
+
+说明：
+- `4001` 是 Anthropic 专用外层路由，主 provider 失败时会手动切到京东云 Anthropic shim
+- `4000` 继续保留给 LiteLLM 原生接口、OpenAI 兼容客户端和 UI
 
 ### OpenAI 兼容客户端
 

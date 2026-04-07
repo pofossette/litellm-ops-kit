@@ -222,6 +222,28 @@ render_fallback_entry() {
   printf ']}\n'
 }
 
+provider_shim_path_for_level() {
+  case "$1" in
+    MAIN) echo "main" ;;
+    FALLBACK) echo "fallback" ;;
+    FALLBACK2) echo "fallback2" ;;
+    FALLBACK3) echo "fallback3" ;;
+    *) return 1 ;;
+  esac
+}
+
+render_anthropic_api_base_value() {
+  local prefix="$1"
+  local api_base_var="${prefix}_ANTHROPIC_API_BASE"
+  local api_base_value="${!api_base_var:-}"
+
+  if [[ "$api_base_value" == "https://modelservice.jdcloud.com/coding/anthropic" ]]; then
+    printf 'http://jdcloud-anthropic-shim:8081/%s' "$(provider_shim_path_for_level "$prefix")"
+  else
+    printf 'os.environ/%s_ANTHROPIC_API_BASE' "$prefix"
+  fi
+}
+
 render_litellm_config() {
   validate_provider_chain
 
@@ -245,8 +267,10 @@ render_litellm_config() {
   - model_name: ${model_name}
     litellm_params:
       model: anthropic/os.environ/${prefix}_${route_key}_MODEL
-      api_base: os.environ/${prefix}_ANTHROPIC_API_BASE
+      api_base: $(render_anthropic_api_base_value "$prefix")
       api_key: os.environ/${prefix}_ANTHROPIC_API_KEY
+      extra_headers:
+        x-api-key: os.environ/${prefix}_ANTHROPIC_API_KEY
 
 EOF
           if [[ "$(provider_openai_status "$prefix")" == "ready" ]]; then
