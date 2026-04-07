@@ -75,7 +75,7 @@ services:
     container_name: litellm-ops-kit-proxy
     restart: unless-stopped
     depends_on:
-      - litellm
+      - anthropic-router
     ports:
       - "${PROXY_LISTEN_PORT:-8080}:8080"
     volumes:
