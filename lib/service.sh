@@ -51,9 +51,9 @@ print_startup_info() {
   ui_section "Claude Code env"
   ui_code "export ANTHROPIC_BASE_URL=http://${host_ip}:${port}"
   ui_code "export ANTHROPIC_AUTH_TOKEN=${LITELLM_MASTER_KEY}"
-  ui_code "export ANTHROPIC_DEFAULT_OPUS_MODEL=claude-opus-4.6"
-  ui_code "export ANTHROPIC_DEFAULT_SONNET_MODEL=claude-sonnet-4.6"
-  ui_code "export ANTHROPIC_DEFAULT_HAIKU_MODEL=claude-haiku-4.5"
+  ui_code "export ANTHROPIC_DEFAULT_OPUS_MODEL=my-opus"
+  ui_code "export ANTHROPIC_DEFAULT_SONNET_MODEL=my-sonnet"
+  ui_code "export ANTHROPIC_DEFAULT_HAIKU_MODEL=my-haiku"
 
   echo ""
   ui_kv "Autostart" "$(ui_status_badge "$autostart_state")"
@@ -235,9 +235,12 @@ cmd_quickstart() {
   ui_kv "密码"   "${UI_PASSWORD:-<check .env>}"
 
   ui_section "Available Models"
-  ui_kv "claude-opus-4.6"   "Opus"
-  ui_kv "claude-sonnet-4.6" "Sonnet"
-  ui_kv "claude-haiku-4.5"  "Haiku"
+  ui_kv "my-opus"   "Anthropic Opus (high)"
+  ui_kv "my-sonnet" "Anthropic Sonnet (medium)"
+  ui_kv "my-haiku"  "Anthropic Haiku (low)"
+  ui_kv "openai-high"   "OpenAI High"
+  ui_kv "openai-medium" "OpenAI Medium"
+  ui_kv "openai-low"    "OpenAI Low"
 
   ui_kv "Mode" "${current_mode}"
 
@@ -245,9 +248,9 @@ cmd_quickstart() {
   ui_dotted_divider 46
   ui_code "export ANTHROPIC_BASE_URL=${api_url}"
   ui_code "export ANTHROPIC_AUTH_TOKEN=${LITELLM_MASTER_KEY}"
-  ui_code "export ANTHROPIC_DEFAULT_OPUS_MODEL=claude-opus-4.6"
-  ui_code "export ANTHROPIC_DEFAULT_SONNET_MODEL=claude-sonnet-4.6"
-  ui_code "export ANTHROPIC_DEFAULT_HAIKU_MODEL=claude-haiku-4.5"
+  ui_code "export ANTHROPIC_DEFAULT_OPUS_MODEL=my-opus"
+  ui_code "export ANTHROPIC_DEFAULT_SONNET_MODEL=my-sonnet"
+  ui_code "export ANTHROPIC_DEFAULT_HAIKU_MODEL=my-haiku"
   ui_dotted_divider 46
 
   ui_thick_divider 52

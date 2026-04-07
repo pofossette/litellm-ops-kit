@@ -12,7 +12,7 @@ SERVICE_NAME="litellm-ops-kit.service"
 SERVICE_FILE="$SYSTEMD_USER_DIR/$SERVICE_NAME"
 
 MAX_FALLBACK_LEVELS=3
-ROUTES=(claude-opus-4.6 claude-sonnet-4.6 claude-haiku-4.5)
+ROUTES=(my-opus my-sonnet my-haiku)
 ROUTE_KEYS=(OPUS SONNET HAIKU)
 
 # shellcheck source=lib/ui.sh

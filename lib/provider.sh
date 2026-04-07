@@ -227,13 +227,15 @@ render_litellm_config() {
 
   local tmp_file
   tmp_file="$(mktemp)"
-  local route_index level prefix route route_key model_name has_any_fallback=0
+  local route_index level prefix route route_key model_name openai_model_name has_any_fallback=0
+  local openai_routes=("openai-high" "openai-medium" "openai-low")
 
   {
     echo "model_list:"
     for route_index in "${!ROUTES[@]}"; do
       route="${ROUTES[$route_index]}"
       route_key="${ROUTE_KEYS[$route_index]}"
+      openai_model_name="${openai_routes[$route_index]}"
 
       for level in 0 1 2 3; do
         prefix="$(provider_prefix_for_level "$level")"
@@ -248,8 +250,9 @@ render_litellm_config() {
 
 EOF
           if [[ "$(provider_openai_status "$prefix")" == "ready" ]]; then
+            local openai_route_name="$(route_model_name "$openai_model_name" "$level")"
             cat <<EOF
-  - model_name: ${model_name}
+  - model_name: ${openai_route_name}
     litellm_params:
       model: openai/os.environ/${prefix}_${route_key}_MODEL
       api_base: os.environ/${prefix}_OPENAI_API_BASE
@@ -291,17 +294,26 @@ EOF
       echo "  fallbacks: []"
     else
       echo "  fallbacks:"
+      local openai_routes=("openai-high" "openai-medium" "openai-low")
       for route_index in "${!ROUTES[@]}"; do
         route="${ROUTES[$route_index]}"
+        local openai_route="${openai_routes[$route_index]}"
         local fallback_models=()
+        local openai_fallback_models=()
         for level in 1 2 3; do
           prefix="$(provider_prefix_for_level "$level")"
           if [[ "$(provider_tier_status "$prefix")" == "ready" ]]; then
             fallback_models+=( "$(route_model_name "$route" "$level")" )
+            if [[ "$(provider_openai_status "$prefix")" == "ready" ]]; then
+              openai_fallback_models+=( "$(route_model_name "$openai_route" "$level")" )
+            fi
           fi
         done
         if [[ "${#fallback_models[@]}" -gt 0 ]]; then
           render_fallback_entry "$route" "${fallback_models[@]}"
+        fi
+        if [[ "${#openai_fallback_models[@]}" -gt 0 ]]; then
+          render_fallback_entry "$openai_route" "${openai_fallback_models[@]}"
         fi
       done
     fi
