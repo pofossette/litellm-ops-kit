@@ -140,6 +140,8 @@ export OPENAI_API_KEY=<LITELLM_MASTER_KEY>
 ./manage.sh restart            # 重启
 ./manage.sh status             # 查看容器状态
 ./manage.sh logs               # 查看日志
+./manage.sh proxy configure    # 配置反向代理
+./manage.sh proxy list         # 查看反向代理状态
 ./manage.sh enable-autostart   # 启用开机自启 (systemd)
 ./manage.sh disable-autostart  # 禁用开机自启
 ```
@@ -161,3 +163,13 @@ export OPENAI_API_KEY=<LITELLM_MASTER_KEY>
 ## Admin UI
 
 启动后访问 `http://<HOST>:4000/ui`，使用 `LITELLM_MASTER_KEY` 登录，可查看用量、调试请求等。
+
+## HTTPS / FRP 说明
+
+- 当前项目中的 LiteLLM 镜像不支持 `--proxy_headers` 启动参数，把它加到 compose 会导致容器启动失败并持续重启。
+- 如果通过 `sakurafrp` 暴露本机 `4000`，推荐保持本机 LiteLLM 继续监听明文 HTTP，由 FRP 侧负责 HTTPS 终止。
+- 这类场景下，先确认本地可访问 `http://127.0.0.1:4000/ui`，再映射 FRP 地址；如果本地都不通，FRP 侧只会表现为 `connection reset by peer`。
+- 项目现在内置了可选的反向代理层，先支持 `nginx`，同时支持 `external` 自管模式，通过 `./manage.sh proxy configure` 统一配置。
+- `proxy configure` 会先探测当前机器上是否已有 `nginx/caddy/traefik/haproxy/apache` 等反代进程或容器；如果你已经自行启用了反代，选 `external` 即可，脚本不会接管该服务。
+- 启用代理后，主流程只需要两个端口：`nginx监听端口` 是本机代理监听端口，`litellm监听端口` 自动使用 LiteLLM 的 `LITELLM_PORT`。
+- 建议把 `sakurafrp` 的本地目标端口改为 `nginx监听端口`。例如：LiteLLM 监听 `4000`，Nginx 监听 `8080`，则 FRP 本地目标填 `8080`。

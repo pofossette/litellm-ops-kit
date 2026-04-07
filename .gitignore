@@ -1,3 +1,4 @@
 .env
 .codex
 .codex/
+proxy/nginx/default.conf

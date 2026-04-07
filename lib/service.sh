@@ -31,6 +31,20 @@ print_startup_info() {
   ui_kv "Admin UI" "http://${host_ip}:${port}/ui"
   ui_kv "Login"    "用户名: ${UI_USERNAME:-admin} / 密码: ${UI_PASSWORD:-<check .env>}"
 
+  if proxy_enabled; then
+    local proxy_port
+    proxy_port="$(proxy_listen_port)"
+    echo ""
+    ui_section "Reverse Proxy"
+    ui_kv "Type"       "$(proxy_type_label "${PROXY_TYPE:-none}")"
+    ui_kv "nginx监听端口" "${proxy_port}"
+    ui_kv "litellm监听端口" "${LITELLM_PORT:-4000}"
+    ui_kv "Local"      "http://127.0.0.1:${proxy_port}"
+    ui_kv "LAN"        "http://${host_ip}:${proxy_port}"
+    ui_kv "FRP Target" "${host_ip}:${proxy_port}"
+    ui_kv "Forwarded"  "$(proxy_forwarded_proto)://${host_ip}"
+  fi
+
   ui_section "Routing"
   for level in "${!ROUTES[@]}"; do route_chain_summary "$level"; done
 
@@ -49,6 +63,14 @@ print_startup_info() {
 write_systemd_service() {
   mkdir -p "$SYSTEMD_USER_DIR"
   resolve_compose_file
+  load_env
+
+  local profile_args=""
+  local proxy_profile
+  proxy_profile="$(proxy_profile_name 2>/dev/null || true)"
+  if [[ -n "$proxy_profile" ]]; then
+    profile_args=" --profile $proxy_profile"
+  fi
 
   cat >"$SERVICE_FILE" <<EOF
 [Unit]
@@ -60,8 +82,8 @@ Wants=network-online.target
 Type=oneshot
 RemainAfterExit=yes
 WorkingDirectory=$PROJECT_DIR
-ExecStart=/usr/bin/docker compose --env-file $ENV_FILE -f $COMPOSE_FILE up -d
-ExecStop=/usr/bin/docker compose --env-file $ENV_FILE -f $COMPOSE_FILE down
+ExecStart=/usr/bin/docker compose --env-file $ENV_FILE -f $COMPOSE_FILE${profile_args} up -d
+ExecStop=/usr/bin/docker compose --env-file $ENV_FILE -f $COMPOSE_FILE${profile_args} down
 TimeoutStartSec=0
 
 [Install]
@@ -77,6 +99,7 @@ cmd_init() {
 cmd_start() {
   require_configured_env
   render_litellm_config
+  render_proxy_config
   compose up -d
   show_raw_cmd "$COMPOSE_FILE up -d"
   print_startup_info
@@ -92,6 +115,7 @@ cmd_stop() {
 cmd_restart() {
   require_configured_env
   render_litellm_config
+  render_proxy_config
   compose down
   compose up -d
   show_raw_cmd "$COMPOSE_FILE down && $COMPOSE_FILE up -d"
@@ -193,6 +217,18 @@ cmd_quickstart() {
   ui_kv "API Endpoint" "${api_url}"
   ui_kv "API Key"      "${LITELLM_MASTER_KEY}"
 
+  if proxy_enabled; then
+    local proxy_port proxy_url
+    proxy_port="$(proxy_listen_port)"
+    proxy_url="http://${host_ip}:${proxy_port}"
+    ui_section "Reverse Proxy"
+    ui_kv "nginx监听端口" "${proxy_port}"
+    ui_kv "litellm监听端口" "${LITELLM_PORT:-4000}"
+    ui_kv "Proxy URL"   "${proxy_url}"
+    ui_kv "FRP Target"  "${host_ip}:${proxy_port}"
+    ui_kv "Forwarded"   "$(proxy_forwarded_proto)://${host_ip}"
+  fi
+
   ui_section "Web Panel 登录"
   ui_kv "地址"   "${api_url}/ui"
   ui_kv "用户名" "${UI_USERNAME:-admin}"
@@ -221,6 +257,7 @@ cmd_quickstart() {
 cmd_enable_autostart() {
   require_configured_env
   render_litellm_config
+  render_proxy_config
   write_systemd_service
   systemctl --user daemon-reload
   systemctl --user enable "$SERVICE_NAME"

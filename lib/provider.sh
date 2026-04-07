@@ -110,7 +110,7 @@ disable_provider_tier_from_level() {
     local prefix
     prefix="$(provider_prefix_for_level "$level")"
     while IFS= read -r var_name; do
-      env_unset "$var_name"
+      env_batch_unset "$var_name"
     done < <(provider_var_names "$prefix")
   done
 }
@@ -121,13 +121,13 @@ prompt_provider_tier() {
   prefix="$(provider_prefix_for_level "$level")"
 
   ui_header "Configuring $(provider_label_for_level "$level") provider (${prefix})"
-  env_write "${prefix}_ANTHROPIC_API_BASE" "$(prompt_value "Anthropic API base" "$(env_get "${prefix}_ANTHROPIC_API_BASE")")"
-  env_write "${prefix}_ANTHROPIC_API_KEY" "$(prompt_value "Anthropic API key" "$(env_get "${prefix}_ANTHROPIC_API_KEY")" 1)"
-  env_write "${prefix}_OPENAI_API_BASE" "$(prompt_value "OpenAI API base" "$(env_get "${prefix}_OPENAI_API_BASE")")"
-  env_write "${prefix}_OPENAI_API_KEY" "$(prompt_value "OpenAI API key" "$(env_get "${prefix}_OPENAI_API_KEY")" 1)"
-  env_write "${prefix}_OPUS_MODEL" "$(prompt_value "Opus model" "$(env_get "${prefix}_OPUS_MODEL")")"
-  env_write "${prefix}_SONNET_MODEL" "$(prompt_value "Sonnet model" "$(env_get "${prefix}_SONNET_MODEL")")"
-  env_write "${prefix}_HAIKU_MODEL" "$(prompt_value "Haiku model" "$(env_get "${prefix}_HAIKU_MODEL")")"
+  env_batch_set "${prefix}_ANTHROPIC_API_BASE" "$(prompt_value "Anthropic API base" "$(env_get "${prefix}_ANTHROPIC_API_BASE")")"
+  env_batch_set "${prefix}_ANTHROPIC_API_KEY" "$(prompt_value "Anthropic API key" "$(env_get "${prefix}_ANTHROPIC_API_KEY")" 1)"
+  env_batch_set "${prefix}_OPENAI_API_BASE" "$(prompt_value "OpenAI API base" "$(env_get "${prefix}_OPENAI_API_BASE")")"
+  env_batch_set "${prefix}_OPENAI_API_KEY" "$(prompt_value "OpenAI API key" "$(env_get "${prefix}_OPENAI_API_KEY")" 1)"
+  env_batch_set "${prefix}_OPUS_MODEL" "$(prompt_value "Opus model" "$(env_get "${prefix}_OPUS_MODEL")")"
+  env_batch_set "${prefix}_SONNET_MODEL" "$(prompt_value "Sonnet model" "$(env_get "${prefix}_SONNET_MODEL")")"
+  env_batch_set "${prefix}_HAIKU_MODEL" "$(prompt_value "Haiku model" "$(env_get "${prefix}_HAIKU_MODEL")")"
 }
 
 validate_provider_chain() {
@@ -332,6 +332,7 @@ cmd_provider_edit() {
 
   ensure_env_file
   load_env
+  env_batch_begin
 
   if [[ "$level" -ne 0 ]]; then
     local previous_level=$((level - 1))
@@ -344,6 +345,16 @@ cmd_provider_edit() {
   fi
 
   prompt_provider_tier "$level"
+  echo ""
+  local confirm
+  read -rp "Apply provider changes? [Y/n]: " confirm
+  confirm="${confirm:-Y}"
+  if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+    env_batch_discard
+    ui_warning "已取消，未写入 .env。"
+    return 0
+  fi
+  env_batch_apply
   render_litellm_config
   ui_success "Updated $(provider_label_for_level "$level") provider and rendered $CONFIG_FILE"
 }
@@ -367,7 +378,17 @@ cmd_provider_disable() {
 
   ensure_env_file
   load_env
+  env_batch_begin
   disable_provider_tier_from_level "$level"
+  local confirm
+  read -rp "Apply provider disable changes? [Y/n]: " confirm
+  confirm="${confirm:-Y}"
+  if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+    env_batch_discard
+    ui_warning "已取消，未写入 .env。"
+    return 0
+  fi
+  env_batch_apply
   render_litellm_config
   ui_success "Disabled $(provider_label_for_level "$level") and higher fallback tiers."
 }
@@ -375,6 +396,7 @@ cmd_provider_disable() {
 cmd_provider_configure() {
   ensure_env_file
   load_env
+  env_batch_begin
 
   prompt_provider_tier 0
 
@@ -411,6 +433,16 @@ cmd_provider_configure() {
     fi
   done
 
+  echo ""
+  local confirm
+  read -rp "Apply provider configuration now? [Y/n]: " confirm
+  confirm="${confirm:-Y}"
+  if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+    env_batch_discard
+    ui_warning "已取消，未写入 .env。"
+    return 0
+  fi
+  env_batch_apply
   render_litellm_config
   ui_success "Provider configuration updated and rendered $CONFIG_FILE"
 }

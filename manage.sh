@@ -21,6 +21,8 @@ source "$PROJECT_DIR/lib/ui.sh"
 source "$PROJECT_DIR/lib/common.sh"
 # shellcheck source=lib/provider.sh
 source "$PROJECT_DIR/lib/provider.sh"
+# shellcheck source=lib/proxy.sh
+source "$PROJECT_DIR/lib/proxy.sh"
 # shellcheck source=lib/service.sh
 source "$PROJECT_DIR/lib/service.sh"
 
@@ -39,6 +41,7 @@ cmd_help() {
   ui_table_row "status" 18 "显示容器状态" 34
   ui_table_row "logs" 18 "查看服务日志" 34
   ui_table_row "provider" 18 "管理 provider tiers 和配置" 34
+  ui_table_row "proxy" 18 "管理反向代理类型与配置" 34
   ui_table_row "quickstart" 18 "查看快速接入指引" 34
   ui_table_row "enable-autostart" 18 "启用 systemd 用户服务" 34
   ui_table_row "disable-autostart" 18 "禁用 systemd 用户服务" 34
@@ -50,6 +53,8 @@ cmd_help() {
   ui_code "./manage.sh provider edit <main|fallback|fallback2|fallback3>"
   ui_code "./manage.sh provider disable <fallback|fallback2|fallback3>"
   ui_code "./manage.sh provider render"
+  ui_code "./manage.sh proxy configure"
+  ui_code "./manage.sh proxy list"
   echo ""
 }
 
@@ -74,9 +79,10 @@ show_menu() {
   ui_menu_item "6" "restart"      "重启 LiteLLM 网关"
   ui_menu_item "7" "status"       "显示容器状态"
   ui_menu_item "8" "logs"         "查看服务日志"
-  ui_menu_item "9" "quickstart"   "查看快速接入指引"
-  ui_menu_item "a" "autostart on" "启用 systemd 用户服务"
-  ui_menu_item "b" "autostart off" "禁用 systemd 用户服务"
+  ui_menu_item "9" "proxy"        "管理反向代理"
+  ui_menu_item "a" "quickstart"   "查看快速接入指引"
+  ui_menu_item "b" "autostart on" "启用 systemd 用户服务"
+  ui_menu_item "c" "autostart off" "禁用 systemd 用户服务"
   ui_menu_item "p" "provider"     "管理 provider tiers"
   ui_menu_item "0" "exit"         "退出"
   ui_divider '-' 52
@@ -97,6 +103,7 @@ main() {
       status) cmd_status ;;
       logs) cmd_logs ;;
       provider) shift; cmd_provider "$@" ;;
+      proxy) shift; cmd_proxy "$@" ;;
       quickstart) cmd_quickstart ;;
       enable-autostart) cmd_enable_autostart ;;
       disable-autostart) cmd_disable_autostart ;;
@@ -112,7 +119,7 @@ main() {
 
   while true; do
     show_menu
-    read -rp "Select an option [0-9/a-p]: " choice
+    read -rp "Select an option [0-9/a-c/p]: " choice
     case "$choice" in
       1) cmd_install ;;
       2) cmd_uninstall ;;
@@ -122,9 +129,10 @@ main() {
       6) cmd_restart ;;
       7) cmd_status ;;
       8) cmd_logs ;;
-      9) cmd_quickstart ;;
-      a|A) cmd_enable_autostart ;;
-      b|B) cmd_disable_autostart ;;
+      9) proxy_menu ;;
+      a|A) cmd_quickstart ;;
+      b|B) cmd_enable_autostart ;;
+      c|C) cmd_disable_autostart ;;
       p|P) provider_menu ;;
       0) ui_info "Bye!"; exit 0 ;;
       *) ui_warning "无效选项，请重新选择" ;;
