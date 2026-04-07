@@ -1,69 +1,39 @@
 model_list:
-  - model_name: my-opus
+  - model_name: claude-opus-4.6
     litellm_params:
       model: anthropic/os.environ/MAIN_OPUS_MODEL
       api_base: os.environ/MAIN_ANTHROPIC_API_BASE
       api_key: os.environ/MAIN_ANTHROPIC_API_KEY
-  - model_name: my-opus
-    litellm_params:
-      model: openai/os.environ/MAIN_OPUS_MODEL
-      api_base: os.environ/MAIN_OPENAI_API_BASE
-      api_key: os.environ/MAIN_OPENAI_API_KEY
 
-  - model_name: my-opus-fallback
+  - model_name: claude-opus-4.6-fallback
     litellm_params:
       model: anthropic/os.environ/FALLBACK_OPUS_MODEL
       api_base: os.environ/FALLBACK_ANTHROPIC_API_BASE
       api_key: os.environ/FALLBACK_ANTHROPIC_API_KEY
-  - model_name: my-opus-fallback
-    litellm_params:
-      model: openai/os.environ/FALLBACK_OPUS_MODEL
-      api_base: os.environ/FALLBACK_OPENAI_API_BASE
-      api_key: os.environ/FALLBACK_OPENAI_API_KEY
 
-  - model_name: my-sonnet
+  - model_name: claude-sonnet-4.6
     litellm_params:
       model: anthropic/os.environ/MAIN_SONNET_MODEL
       api_base: os.environ/MAIN_ANTHROPIC_API_BASE
       api_key: os.environ/MAIN_ANTHROPIC_API_KEY
-  - model_name: my-sonnet
-    litellm_params:
-      model: openai/os.environ/MAIN_SONNET_MODEL
-      api_base: os.environ/MAIN_OPENAI_API_BASE
-      api_key: os.environ/MAIN_OPENAI_API_KEY
 
-  - model_name: my-sonnet-fallback
+  - model_name: claude-sonnet-4.6-fallback
     litellm_params:
       model: anthropic/os.environ/FALLBACK_SONNET_MODEL
       api_base: os.environ/FALLBACK_ANTHROPIC_API_BASE
       api_key: os.environ/FALLBACK_ANTHROPIC_API_KEY
-  - model_name: my-sonnet-fallback
-    litellm_params:
-      model: openai/os.environ/FALLBACK_SONNET_MODEL
-      api_base: os.environ/FALLBACK_OPENAI_API_BASE
-      api_key: os.environ/FALLBACK_OPENAI_API_KEY
 
-  - model_name: my-haiku
+  - model_name: claude-haiku-4.5
     litellm_params:
       model: anthropic/os.environ/MAIN_HAIKU_MODEL
       api_base: os.environ/MAIN_ANTHROPIC_API_BASE
       api_key: os.environ/MAIN_ANTHROPIC_API_KEY
-  - model_name: my-haiku
-    litellm_params:
-      model: openai/os.environ/MAIN_HAIKU_MODEL
-      api_base: os.environ/MAIN_OPENAI_API_BASE
-      api_key: os.environ/MAIN_OPENAI_API_KEY
 
-  - model_name: my-haiku-fallback
+  - model_name: claude-haiku-4.5-fallback
     litellm_params:
       model: anthropic/os.environ/FALLBACK_HAIKU_MODEL
       api_base: os.environ/FALLBACK_ANTHROPIC_API_BASE
       api_key: os.environ/FALLBACK_ANTHROPIC_API_KEY
-  - model_name: my-haiku-fallback
-    litellm_params:
-      model: openai/os.environ/FALLBACK_HAIKU_MODEL
-      api_base: os.environ/FALLBACK_OPENAI_API_BASE
-      api_key: os.environ/FALLBACK_OPENAI_API_KEY
 
 litellm_settings:
   master_key: os.environ/LITELLM_MASTER_KEY
@@ -74,6 +44,6 @@ router_settings:
   num_retries: 2
   timeout: 120
   fallbacks:
-    - {"my-opus": ["my-opus-fallback"]}
-    - {"my-sonnet": ["my-sonnet-fallback"]}
-    - {"my-haiku": ["my-haiku-fallback"]}
+    - {"claude-opus-4.6": ["claude-opus-4.6-fallback"]}
+    - {"claude-sonnet-4.6": ["claude-sonnet-4.6-fallback"]}
+    - {"claude-haiku-4.5": ["claude-haiku-4.5-fallback"]}

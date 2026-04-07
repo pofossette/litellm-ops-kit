@@ -42,15 +42,21 @@ provider_var_names() {
   cat <<EOF
 ${prefix}_ANTHROPIC_API_BASE
 ${prefix}_ANTHROPIC_API_KEY
-${prefix}_OPENAI_API_BASE
-${prefix}_OPENAI_API_KEY
 ${prefix}_OPUS_MODEL
 ${prefix}_SONNET_MODEL
 ${prefix}_HAIKU_MODEL
 EOF
 }
 
-provider_tier_status() {
+provider_openai_var_names() {
+  local prefix="$1"
+  cat <<EOF
+${prefix}_OPENAI_API_BASE
+${prefix}_OPENAI_API_KEY
+EOF
+}
+
+provider_openai_status() {
   local prefix="$1"
   local any_set=0
   local all_set=1
@@ -67,7 +73,41 @@ provider_tier_status() {
     else
       all_set=0
     fi
+  done < <(provider_openai_var_names "$prefix")
+
+  if [[ "$any_set" -eq 0 ]]; then
+    echo "empty"
+  elif [[ "$all_set" -eq 1 && "$invalid" -eq 0 ]]; then
+    echo "ready"
+  else
+    echo "invalid"
+  fi
+}
+
+provider_tier_status() {
+  local prefix="$1"
+  local any_set=0
+  local all_set=1
+  local invalid=0
+  local var_name
+  local openai_status
+
+  while IFS= read -r var_name; do
+    local value="${!var_name:-}"
+    if [[ -n "$value" ]]; then
+      any_set=1
+      if is_placeholder_value "$value"; then
+        invalid=1
+      fi
+    else
+      all_set=0
+    fi
   done < <(provider_var_names "$prefix")
+
+  openai_status="$(provider_openai_status "$prefix")"
+  if [[ "$openai_status" == "invalid" ]]; then
+    invalid=1
+  fi
 
   if [[ "$prefix" == "MAIN" ]]; then
     if [[ "$any_set" -eq 0 ]]; then
@@ -198,13 +238,17 @@ render_litellm_config() {
       for level in 0 1 2 3; do
         prefix="$(provider_prefix_for_level "$level")"
         if [[ "$(provider_tier_status "$prefix")" == "ready" ]]; then
-          model_name="$(route_model_name "$route" "$level")"
-          cat <<EOF
+      model_name="$(route_model_name "$route" "$level")"
+      cat <<EOF
   - model_name: ${model_name}
     litellm_params:
       model: anthropic/os.environ/${prefix}_${route_key}_MODEL
       api_base: os.environ/${prefix}_ANTHROPIC_API_BASE
       api_key: os.environ/${prefix}_ANTHROPIC_API_KEY
+
+EOF
+          if [[ "$(provider_openai_status "$prefix")" == "ready" ]]; then
+            cat <<EOF
   - model_name: ${model_name}
     litellm_params:
       model: openai/os.environ/${prefix}_${route_key}_MODEL
@@ -212,6 +256,7 @@ render_litellm_config() {
       api_key: os.environ/${prefix}_OPENAI_API_KEY
 
 EOF
+          fi
         fi
       done
     done

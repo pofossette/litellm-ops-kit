@@ -24,9 +24,9 @@ Claude Code / 客户端
 
 | 模型名 | Main provider | Fallback provider |
 |--------|---------------|-------------------|
-| `my-opus` | anthropic + openai | anthropic + openai |
-| `my-sonnet` | anthropic + openai | anthropic + openai |
-| `my-haiku` | anthropic + openai | anthropic + openai |
+| `claude-opus-4.6` | anthropic + openai | anthropic + openai |
+| `claude-sonnet-4.6` | anthropic + openai | anthropic + openai |
+| `claude-haiku-4.5` | anthropic + openai | anthropic + openai |
 
 ## 快速开始
 
@@ -119,9 +119,9 @@ FALLBACK3_HAIKU_MODEL=
 ```bash
 export ANTHROPIC_BASE_URL=http://<HOST>:4000
 export ANTHROPIC_AUTH_TOKEN=<LITELLM_MASTER_KEY>
-export ANTHROPIC_DEFAULT_OPUS_MODEL=my-opus
-export ANTHROPIC_DEFAULT_SONNET_MODEL=my-sonnet
-export ANTHROPIC_DEFAULT_HAIKU_MODEL=my-haiku
+export ANTHROPIC_DEFAULT_OPUS_MODEL=claude-opus-4.6
+export ANTHROPIC_DEFAULT_SONNET_MODEL=claude-sonnet-4.6
+export ANTHROPIC_DEFAULT_HAIKU_MODEL=claude-haiku-4.5
 ```
 
 ### OpenAI 兼容客户端
@@ -129,7 +129,7 @@ export ANTHROPIC_DEFAULT_HAIKU_MODEL=my-haiku
 ```bash
 export OPENAI_API_BASE=http://<HOST>:4000/v1
 export OPENAI_API_KEY=<LITELLM_MASTER_KEY>
-# 使用模型名: my-opus / my-sonnet / my-haiku
+# 使用模型名: claude-opus-4.6 / claude-sonnet-4.6 / claude-haiku-4.5
 ```
 
 ## 管理命令
