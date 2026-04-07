@@ -29,7 +29,7 @@ print_startup_info() {
   ui_kv "Local"    "http://127.0.0.1:${port}"
   ui_kv "LAN"      "http://${host_ip}:${port}"
   ui_kv "Admin UI" "http://${host_ip}:${port}/ui"
-  ui_kv "Login"    "用户名: ${UI_USERNAME:-admin} / 密码: ${UI_PASSWORD}"
+  ui_kv "Login"    "用户名: ${UI_USERNAME:-admin} / 密码: ${UI_PASSWORD:-<check .env>}"
 
   ui_section "Routing"
   for level in "${!ROUTES[@]}"; do route_chain_summary "$level"; done
@@ -196,7 +196,7 @@ cmd_quickstart() {
   ui_section "Web Panel 登录"
   ui_kv "地址"   "${api_url}/ui"
   ui_kv "用户名" "${UI_USERNAME:-admin}"
-  ui_kv "密码"   "${UI_PASSWORD}"
+  ui_kv "密码"   "${UI_PASSWORD:-<check .env>}"
 
   ui_section "Available Models"
   ui_kv "my-opus"   "Opus"
