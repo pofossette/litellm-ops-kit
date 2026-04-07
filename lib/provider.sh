@@ -120,7 +120,7 @@ prompt_provider_tier() {
   local prefix
   prefix="$(provider_prefix_for_level "$level")"
 
-  echo "Configuring $(provider_label_for_level "$level") provider (${prefix})"
+  ui_header "Configuring $(provider_label_for_level "$level") provider (${prefix})"
   env_write "${prefix}_ANTHROPIC_API_BASE" "$(prompt_value "Anthropic API base" "$(env_get "${prefix}_ANTHROPIC_API_BASE")")"
   env_write "${prefix}_ANTHROPIC_API_KEY" "$(prompt_value "Anthropic API key" "$(env_get "${prefix}_ANTHROPIC_API_KEY")" 1)"
   env_write "${prefix}_OPENAI_API_BASE" "$(prompt_value "OpenAI API base" "$(env_get "${prefix}_OPENAI_API_BASE")")"
@@ -142,7 +142,7 @@ validate_provider_chain() {
 
     if [[ "$level" -eq 0 ]]; then
       if [[ "$status" != "ready" ]]; then
-        echo "Config error: main provider (${prefix}) must be fully configured in $ENV_FILE" >&2
+        ui_error "main provider (${prefix}) must be fully configured in $ENV_FILE"
         exit 1
       fi
       continue
@@ -151,7 +151,7 @@ validate_provider_chain() {
     case "$status" in
       ready)
         if [[ "$gap_seen" -eq 1 ]]; then
-          echo "Config error: ${prefix} is configured after a missing fallback tier. Configure fallback tiers contiguously." >&2
+          ui_error "${prefix} is configured after a missing fallback tier. Configure fallback tiers contiguously."
           exit 1
         fi
         ;;
@@ -159,7 +159,7 @@ validate_provider_chain() {
         gap_seen=1
         ;;
       invalid)
-        echo "Config error: ${prefix} is partially configured or contains placeholder values in $ENV_FILE" >&2
+        ui_error "${prefix} is partially configured or contains placeholder values in $ENV_FILE"
         exit 1
         ;;
     esac
@@ -278,31 +278,34 @@ route_chain_summary() {
       model_var="${prefix}_${route_key}_MODEL"
       model_name="${!model_var:-}"
       if [[ -n "$summary" ]]; then
-        summary+=" -> "
+        summary+=" ${C_DIM}->${C_RESET} "
       fi
-      summary+="$(provider_label_for_level "$level") (${model_name})"
+      summary+="$(provider_label_for_level "$level") (${C_BWHITE}${model_name}${C_RESET})"
     fi
   done
 
   if [[ -z "$summary" ]]; then
-    summary="invalid"
+    summary="${C_DIM}not configured${C_RESET}"
   fi
 
-  printf '  %-12s %s\n' "$route" "$summary"
+  printf "  ${C_BOLD}${C_CYAN}%-12s${C_RESET} %s\n" "$route" "$summary"
 }
 
 print_provider_summary() {
   local level prefix status
 
-  echo "Provider tiers:"
+  ui_section "Provider Tiers"
+  ui_table_header "Tier" 12 "Status" 20
+  ui_table_divider 12 20
   for level in 0 1 2 3; do
     prefix="$(provider_prefix_for_level "$level")"
     status="$(provider_tier_status "$prefix")"
-    printf '  %-10s %s\n' "$prefix" "$status"
+    printf "  ${C_BOLD}%-12s${C_RESET}" "$prefix"
+    printf " %s\n" "$(ui_status_badge "$status")"
   done
 
   echo ""
-  echo "Route chains:"
+  ui_section "Route Chains"
   for level in "${!ROUTES[@]}"; do
     route_chain_summary "$level"
   done
@@ -316,14 +319,14 @@ cmd_provider_list() {
 cmd_provider_render() {
   require_configured_env
   render_litellm_config
-  echo "Rendered $CONFIG_FILE from $ENV_FILE"
+  ui_success "Rendered $CONFIG_FILE from $ENV_FILE"
 }
 
 cmd_provider_edit() {
   local tier_name="${1:-main}"
   local level
   level="$(provider_index_from_name "$tier_name")" || {
-    echo "Unknown provider tier: ${tier_name}" >&2
+    ui_error "Unknown provider tier: ${tier_name}"
     return 1
   }
 
@@ -335,14 +338,14 @@ cmd_provider_edit() {
     local previous_prefix
     previous_prefix="$(provider_prefix_for_level "$previous_level")"
     if [[ "$(provider_tier_status "$previous_prefix")" != "ready" ]]; then
-      echo "Config error: configure $(provider_label_for_level "$previous_level") before $(provider_label_for_level "$level")." >&2
+      ui_error "configure $(provider_label_for_level "$previous_level") before $(provider_label_for_level "$level")."
       return 1
     fi
   fi
 
   prompt_provider_tier "$level"
   render_litellm_config
-  echo "Updated $(provider_label_for_level "$level") provider and rendered $CONFIG_FILE"
+  ui_success "Updated $(provider_label_for_level "$level") provider and rendered $CONFIG_FILE"
 }
 
 cmd_provider_disable() {
@@ -352,13 +355,13 @@ cmd_provider_disable() {
     level=1
   else
     level="$(provider_index_from_name "$tier_name")" || {
-      echo "Unknown provider tier: ${tier_name}" >&2
+      ui_error "Unknown provider tier: ${tier_name}"
       return 1
     }
   fi
 
   if [[ "$level" -eq 0 ]]; then
-    echo "The main provider cannot be disabled." >&2
+    ui_error "The main provider cannot be disabled."
     return 1
   fi
 
@@ -366,7 +369,7 @@ cmd_provider_disable() {
   load_env
   disable_provider_tier_from_level "$level"
   render_litellm_config
-  echo "Disabled $(provider_label_for_level "$level") and higher fallback tiers."
+  ui_success "Disabled $(provider_label_for_level "$level") and higher fallback tiers."
 }
 
 cmd_provider_configure() {
@@ -397,7 +400,7 @@ cmd_provider_configure() {
         local previous_prefix
         previous_prefix="$(provider_prefix_for_level $((level - 1)))"
         if [[ "$(provider_tier_status "$previous_prefix")" != "ready" ]]; then
-          echo "Config error: configure $(provider_label_for_level $((level - 1))) before $(provider_label_for_level "$level")." >&2
+          ui_error "configure $(provider_label_for_level $((level - 1))) before $(provider_label_for_level "$level")."
           return 1
         fi
       fi
@@ -409,36 +412,40 @@ cmd_provider_configure() {
   done
 
   render_litellm_config
-  echo "Provider configuration updated and rendered $CONFIG_FILE"
+  ui_success "Provider configuration updated and rendered $CONFIG_FILE"
 }
 
 cmd_provider_help() {
-  cat <<EOF
-Usage: ./manage.sh provider <command>
-
-Commands:
-  list                 Show provider tier status and route chains
-  configure            Interactive setup for main + up to 3 fallback tiers
-  edit <tier>          Edit one tier: main, fallback, fallback2, fallback3
-  disable <tier>       Disable a tier and all higher fallback tiers
-  render               Regenerate LiteLLM config from .env
-EOF
+  ui_header "Usage: ./manage.sh provider <command>"
+  echo ""
+  ui_table_header "Command" 14 "Description" 40
+  ui_table_divider 14 40
+  ui_table_row "list" 14 "显示 provider 状态和路由链" 40
+  ui_table_row "configure" 14 "向导式配置主 provider 和 fallback tiers" 40
+  ui_table_row "edit" 14 "编辑指定 tier: main/fallback/fallback2/3" 40
+  ui_table_row "disable" 14 "禁用指定 tier 及更深层 fallback" 40
+  ui_table_row "render" 14 "从 .env 重新生成 LiteLLM 配置" 40
+  echo ""
 }
 
 show_provider_menu() {
-  echo "Provider 管理"
-  echo "================"
-  echo "1) list           - 查看当前 provider 状态"
-  echo "2) configure      - 向导式配置主 provider 和 fallback tiers"
-  echo "3) edit main      - 单独编辑主 provider"
-  echo "4) edit fallback  - 单独编辑第一层 fallback"
-  echo "5) edit fallback2 - 单独编辑第二层 fallback"
-  echo "6) edit fallback3 - 单独编辑第三层 fallback"
-  echo "7) disable fallback  - 禁用 fallback 及更深层"
-  echo "8) disable fallback2 - 禁用 fallback2 及更深层"
-  echo "9) disable fallback3 - 只禁用 fallback3"
-  echo "10) render       - 重新生成 LiteLLM 配置"
-  echo "0) back          - 返回主菜单"
+  echo ""
+  ui_thick_divider 52
+  printf "  ${C_BOLD}${C_BMAGENTA}⚙  Provider 管理${C_RESET}\n"
+  ui_divider '-' 52
+
+  ui_menu_item "1" "list"            "查看当前 provider 状态"
+  ui_menu_item "2" "configure"       "向导式配置主 provider 和 fallback tiers"
+  ui_menu_item "3" "edit main"       "单独编辑主 provider"
+  ui_menu_item "4" "edit fallback"   "单独编辑第一层 fallback"
+  ui_menu_item "5" "edit fallback2"  "单独编辑第二层 fallback"
+  ui_menu_item "6" "edit fallback3"  "单独编辑第三层 fallback"
+  ui_menu_item "7" "disable fb1"     "禁用 fallback 及更深层"
+  ui_menu_item "8" "disable fb2"     "禁用 fallback2 及更深层"
+  ui_menu_item "9" "disable fb3"     "只禁用 fallback3"
+  ui_menu_item "10" "render"         "重新生成 LiteLLM 配置"
+  ui_menu_item "0" "back"            "返回主菜单"
+  ui_divider '-' 52
   echo ""
 }
 
@@ -462,7 +469,7 @@ provider_menu() {
       9) cmd_provider_disable fallback3 ;;
       10) cmd_provider_render ;;
       0) return 0 ;;
-      *) echo "Invalid option. Please try again." ;;
+      *) ui_warning "无效选项，请重新选择" ;;
     esac
     echo ""
   done
@@ -478,7 +485,7 @@ cmd_provider() {
     render|sync) cmd_provider_render ;;
     help|-h|--help) cmd_provider_help ;;
     *)
-      echo "Unknown provider command: $action" >&2
+      ui_error "Unknown provider command: $action"
       cmd_provider_help
       return 1
       ;;

@@ -1,18 +1,63 @@
 #!/usr/bin/env bash
 # lib/common.sh — shared utilities: env file ops, prompts, compose wrapper
 
+MODE_FILE="$PROJECT_DIR/.mode"
+
 generate_master_key() {
   printf 'sk-%s' "$(openssl rand -hex 24)"
 }
 
+# ── Mode management ──
+
+get_mode() {
+  if [[ -f "$MODE_FILE" ]]; then
+    cat "$MODE_FILE"
+  else
+    echo "none"
+  fi
+}
+
+set_mode() {
+  local mode="$1"
+  printf '%s' "$mode" > "$MODE_FILE"
+  # Update COMPOSE_FILE to match the mode
+  COMPOSE_FILE="$PROJECT_DIR/docker-compose.${mode}.yml"
+}
+
+resolve_compose_file() {
+  local mode
+  mode="$(get_mode)"
+  case "$mode" in
+    lite) COMPOSE_FILE="$PROJECT_DIR/docker-compose.lite.yml" ;;
+    full) COMPOSE_FILE="$PROJECT_DIR/docker-compose.full.yml" ;;
+    *)
+      # Legacy: if old docker-compose.yml exists, treat as full mode
+      if [[ -f "$PROJECT_DIR/docker-compose.yml" ]]; then
+        COMPOSE_FILE="$PROJECT_DIR/docker-compose.yml"
+      else
+        COMPOSE_FILE="$PROJECT_DIR/docker-compose.full.yml"
+      fi
+      ;;
+  esac
+}
+
+# ── Env file ──
+
 ensure_env_file() {
   if [[ ! -f "$ENV_FILE" ]]; then
-    cp "$ENV_EXAMPLE_FILE" "$ENV_FILE"
+    local mode
+    mode="$(get_mode)"
+    local template
+    case "$mode" in
+      lite) template="$PROJECT_DIR/.env.example.lite" ;;
+      *)    template="$PROJECT_DIR/.env.example.full" ;;
+    esac
+    cp "$template" "$ENV_FILE"
     local generated_key
     generated_key="$(generate_master_key)"
     env_write "LITELLM_MASTER_KEY" "$generated_key"
     echo "Created $ENV_FILE with auto-generated master key."
-    echo "Edit the endpoint URLs, API keys, and model IDs before starting the service."
+    ui_info "Edit the endpoint URLs, API keys, and model IDs before starting the service."
   fi
 }
 
@@ -116,5 +161,6 @@ require_configured_env() {
 }
 
 compose() {
+  resolve_compose_file
   docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" "$@"
 }
