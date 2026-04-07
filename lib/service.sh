@@ -29,7 +29,7 @@ print_startup_info() {
   ui_kv "Local"    "http://127.0.0.1:${port}"
   ui_kv "LAN"      "http://${host_ip}:${port}"
   ui_kv "Admin UI" "http://${host_ip}:${port}/ui"
-  ui_kv "Master Key" "${LITELLM_MASTER_KEY}"
+  ui_kv "Login"    "用户名: 任意邮箱 / 密码: ${LITELLM_MASTER_KEY}"
 
   ui_section "Routing"
   for level in "${!ROUTES[@]}"; do route_chain_summary "$level"; done
@@ -195,7 +195,7 @@ cmd_quickstart() {
 
   ui_section "Web Panel 登录"
   ui_kv "地址"   "${api_url}/ui"
-  ui_kv "用户名" "(留空)"
+  ui_kv "用户名" "任意邮箱 (如 admin@admin.com)"
   ui_kv "密码"   "${LITELLM_MASTER_KEY}"
 
   ui_section "Available Models"
