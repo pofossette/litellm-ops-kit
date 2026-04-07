@@ -1,7 +1,7 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: claude-gateway-postgres
+    container_name: litellm-ops-kit-postgres
     restart: unless-stopped
     env_file:
       - .env
@@ -19,7 +19,7 @@ services:
 
   litellm:
     image: ghcr.io/berriai/litellm-database:main-stable
-    container_name: claude-gateway-litellm
+    container_name: litellm-ops-kit
     restart: unless-stopped
     depends_on:
       postgres:

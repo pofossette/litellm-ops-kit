@@ -1,4 +1,4 @@
-# Claude Gateway
+# LiteLLM Ops Kit
 
 基于 [LiteLLM](https://github.com/BerriAI/litellm) 的本地 AI 模型网关，聚合多个云服务商的 Anthropic / OpenAI 兼容端点，为 Claude Code 等工具提供统一入口。
 
@@ -7,22 +7,23 @@
 ```
 Claude Code / 客户端
         │
-        ▼
+  ▼
   LiteLLM Gateway (:4000)
      ┌────┴────┐
      ▼         ▼
-   GLM       JD Cloud
-  (主)       (备)
+   Main     Fallback
+  Provider   Provider
 ```
 
 - 同一模型名下同时挂载 Anthropic 协议和 OpenAI 协议路由，LiteLLM 自动负载均衡
-- 主用 GLM，全部失败后 fallback 到 JD Cloud
+- 主 provider 先尝试，失败后自动切到 fallback provider
+- 支持最多 3 级 fallback，且可以通过 `manage.sh` 直接配置和重渲染路由
 - PostgreSQL 持久化 LiteLLM 配置与用量数据
 
 ## 模型路由
 
-| 模型名 | GLM (主) | JD (备) |
-|--------|----------|---------|
+| 模型名 | Main provider | Fallback provider |
+|--------|---------------|-------------------|
 | `my-opus` | anthropic + openai | anthropic + openai |
 | `my-sonnet` | anthropic + openai | anthropic + openai |
 | `my-haiku` | anthropic + openai | anthropic + openai |
@@ -49,13 +50,65 @@ vim .env
 LITELLM_PORT=4000                    # 网关监听端口
 LITELLM_MASTER_KEY=sk-xxx            # 网关认证密钥
 
-# ── 每个云服务商提供两套端点 ──
-GLM_ANTHROPIC_API_BASE=...           # Anthropic 兼容端点
-GLM_ANTHROPIC_API_KEY=...
-GLM_OPENAI_API_BASE=...              # OpenAI 兼容端点
-GLM_OPENAI_API_KEY=...
-GLM_OPUS_MODEL=...                   # 模型标识
+# ── 主 provider ──
+MAIN_ANTHROPIC_API_BASE=...          # Anthropic 兼容端点
+MAIN_ANTHROPIC_API_KEY=...
+MAIN_OPENAI_API_BASE=...             # OpenAI 兼容端点
+MAIN_OPENAI_API_KEY=...
+MAIN_OPUS_MODEL=...                  # 模型标识
+MAIN_SONNET_MODEL=...
+MAIN_HAIKU_MODEL=...
+
+# ── fallback provider ──
+FALLBACK_ANTHROPIC_API_BASE=...
+FALLBACK_ANTHROPIC_API_KEY=...
+FALLBACK_OPENAI_API_BASE=...
+FALLBACK_OPENAI_API_KEY=...
+FALLBACK_OPUS_MODEL=...
+FALLBACK_SONNET_MODEL=...
+FALLBACK_HAIKU_MODEL=...
+
+# ── optional extra fallback providers ──
+FALLBACK2_ANTHROPIC_API_BASE=
+FALLBACK2_ANTHROPIC_API_KEY=
+FALLBACK2_OPENAI_API_BASE=
+FALLBACK2_OPENAI_API_KEY=
+FALLBACK2_OPUS_MODEL=
+FALLBACK2_SONNET_MODEL=
+FALLBACK2_HAIKU_MODEL=
+
+FALLBACK3_ANTHROPIC_API_BASE=
+FALLBACK3_ANTHROPIC_API_KEY=
+FALLBACK3_OPENAI_API_BASE=
+FALLBACK3_OPENAI_API_KEY=
+FALLBACK3_OPUS_MODEL=
+FALLBACK3_SONNET_MODEL=
+FALLBACK3_HAIKU_MODEL=
 ```
+
+## Provider 管理
+
+`manage.sh` 现在可以直接管理 provider tiers，并在修改后重新生成 LiteLLM 路由配置。
+默认直接运行 `./manage.sh` 会进入数字菜单，适合不想记命令的场景。
+
+```bash
+./manage.sh provider list
+./manage.sh provider configure
+./manage.sh provider edit main
+./manage.sh provider edit fallback
+./manage.sh provider edit fallback2
+./manage.sh provider edit fallback3
+./manage.sh provider disable fallback2
+./manage.sh provider render
+```
+
+规则：
+
+- `main` 必填
+- `fallback`、`fallback2`、`fallback3` 可选
+- fallback tier 只能连续配置，不能跳级
+- 最多允许 3 级 fallback
+- 菜单里可以直接选择 `list`、`configure`、`edit`、`disable`、`render`
 
 ## 客户端接入
 
@@ -96,7 +149,6 @@ export OPENAI_API_KEY=<LITELLM_MASTER_KEY>
 ## 文件结构
 
 ```
-claude-gateway/
 ├── .env                  # 本地配置（不提交）
 ├── .env.example          # 配置模板
 ├── docker-compose.yml    # Docker Compose 定义
