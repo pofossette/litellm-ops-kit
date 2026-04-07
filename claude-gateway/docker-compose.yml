@@ -1,0 +1,42 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: claude-gateway-postgres
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-litellm}
+      POSTGRES_USER: ${POSTGRES_USER:-litellm}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-litellm-local-password}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-litellm} -d ${POSTGRES_DB:-litellm}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  litellm:
+    image: ghcr.io/berriai/litellm-database:main-stable
+    container_name: claude-gateway-litellm
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
+    command:
+      - --config
+      - /app/config.yaml
+      - --port
+      - "4000"
+      - --host
+      - 0.0.0.0
+    ports:
+      - "${LITELLM_PORT:-4000}:4000"
+    volumes:
+      - ./litellm/config.yaml:/app/config.yaml:ro
+
+volumes:
+  postgres-data:

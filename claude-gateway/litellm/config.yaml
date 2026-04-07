@@ -1,0 +1,79 @@
+model_list:
+  # ── Opus ──
+  - model_name: my-opus
+    litellm_params:
+      model: anthropic/os.environ/GLM_OPUS_MODEL
+      api_base: os.environ/GLM_ANTHROPIC_API_BASE
+      api_key: os.environ/GLM_ANTHROPIC_API_KEY
+  - model_name: my-opus
+    litellm_params:
+      model: openai/os.environ/GLM_OPUS_MODEL
+      api_base: os.environ/GLM_OPENAI_API_BASE
+      api_key: os.environ/GLM_OPENAI_API_KEY
+  - model_name: my-opus-jd
+    litellm_params:
+      model: anthropic/os.environ/JD_OPUS_MODEL
+      api_base: os.environ/JD_ANTHROPIC_API_BASE
+      api_key: os.environ/JD_ANTHROPIC_API_KEY
+  - model_name: my-opus-jd
+    litellm_params:
+      model: openai/os.environ/JD_OPUS_MODEL
+      api_base: os.environ/JD_OPENAI_API_BASE
+      api_key: os.environ/JD_OPENAI_API_KEY
+
+  # ── Sonnet ──
+  - model_name: my-sonnet
+    litellm_params:
+      model: anthropic/os.environ/GLM_SONNET_MODEL
+      api_base: os.environ/GLM_ANTHROPIC_API_BASE
+      api_key: os.environ/GLM_ANTHROPIC_API_KEY
+  - model_name: my-sonnet
+    litellm_params:
+      model: openai/os.environ/GLM_SONNET_MODEL
+      api_base: os.environ/GLM_OPENAI_API_BASE
+      api_key: os.environ/GLM_OPENAI_API_KEY
+  - model_name: my-sonnet-jd
+    litellm_params:
+      model: anthropic/os.environ/JD_SONNET_MODEL
+      api_base: os.environ/JD_ANTHROPIC_API_BASE
+      api_key: os.environ/JD_ANTHROPIC_API_KEY
+  - model_name: my-sonnet-jd
+    litellm_params:
+      model: openai/os.environ/JD_SONNET_MODEL
+      api_base: os.environ/JD_OPENAI_API_BASE
+      api_key: os.environ/JD_OPENAI_API_KEY
+
+  # ── Haiku ──
+  - model_name: my-haiku
+    litellm_params:
+      model: anthropic/os.environ/GLM_HAIKU_MODEL
+      api_base: os.environ/GLM_ANTHROPIC_API_BASE
+      api_key: os.environ/GLM_ANTHROPIC_API_KEY
+  - model_name: my-haiku
+    litellm_params:
+      model: openai/os.environ/GLM_HAIKU_MODEL
+      api_base: os.environ/GLM_OPENAI_API_BASE
+      api_key: os.environ/GLM_OPENAI_API_KEY
+  - model_name: my-haiku-jd
+    litellm_params:
+      model: anthropic/os.environ/JD_HAIKU_MODEL
+      api_base: os.environ/JD_ANTHROPIC_API_BASE
+      api_key: os.environ/JD_ANTHROPIC_API_KEY
+  - model_name: my-haiku-jd
+    litellm_params:
+      model: openai/os.environ/JD_HAIKU_MODEL
+      api_base: os.environ/JD_OPENAI_API_BASE
+      api_key: os.environ/JD_OPENAI_API_KEY
+
+litellm_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  drop_params: false
+  set_verbose: true
+
+router_settings:
+  num_retries: 2
+  timeout: 120
+  fallbacks:
+    - {"my-opus": ["my-opus-jd"]}
+    - {"my-sonnet": ["my-sonnet-jd"]}
+    - {"my-haiku": ["my-haiku-jd"]}
