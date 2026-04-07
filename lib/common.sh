@@ -56,7 +56,8 @@ ensure_env_file() {
     local generated_key
     generated_key="$(generate_master_key)"
     env_write "LITELLM_MASTER_KEY" "$generated_key"
-    echo "Created $ENV_FILE with auto-generated master key."
+    env_write "UI_PASSWORD" "$generated_key"
+    echo "Created $ENV_FILE with auto-generated master key and UI password."
     ui_info "Edit the endpoint URLs, API keys, and model IDs before starting the service."
   fi
 }
