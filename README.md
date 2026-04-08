@@ -19,7 +19,7 @@ Claude Code / 客户端
 ```
 
 - 同一模型名下同时挂载 Anthropic 协议和 OpenAI 协议路由，LiteLLM 自动负载均衡
-- 主 provider 先尝试，失败后自动切到 fallback provider
+- 主 provider 先尝试，若出现额度耗尽、并发限制、上游 5xx、超时、网络联通异常等可恢复失败，会自动切到 fallback provider
 - 支持最多 3 级 fallback，且可以通过 `manage.sh` 直接配置和重渲染路由
 - PostgreSQL 持久化 LiteLLM 配置与用量数据
 
@@ -34,7 +34,7 @@ Claude Code / 客户端
 | `openai-medium` | openai | OpenAI Medium |
 | `openai-low` | openai | OpenAI Low |
 
-每个模型都支持主 provider 和 fallback provider 自动切换。
+每个模型都支持主 provider 和 fallback provider 自动切换。Anthropic 入口 `:4001/v1/messages` 会按 `main -> fallback -> fallback2 -> fallback3` 顺序逐级尝试已配置的 tier。
 
 ## 快速开始
 
@@ -134,7 +134,7 @@ export ANTHROPIC_DEFAULT_HAIKU_MODEL=my-haiku
 ```
 
 说明：
-- `4001` 是 Anthropic 专用外层路由，主 provider 失败时会手动切到京东云 Anthropic shim
+- `4001` 是 Anthropic 专用外层路由，会先打主套餐；如果遇到额度、限流、5xx、超时或网络异常，会自动切到已配置的 fallback tier
 - `4000` 继续保留给 LiteLLM 原生接口、OpenAI 兼容客户端和 UI
 
 ### OpenAI 兼容客户端

@@ -87,6 +87,7 @@ litellm_settings:
   master_key: os.environ/LITELLM_MASTER_KEY
   drop_params: false
   set_verbose: true
+  allowed_origins: ["http://192.168.5.214:4000", "http://localhost:4000", "http://192.168.5.214:3000", "http://localhost:3000"]
 
 router_settings:
   num_retries: 2
