@@ -93,6 +93,16 @@ class Handler(BaseHTTPRequestHandler):
         incoming_model = body.get("model")
         body["model"] = normalize_model(tier, incoming_model)
 
+        # 为 GLM-5 系列模型开启深度思考模式
+        model_upper = body["model"].upper() if body.get("model") else ""
+        if model_upper.startswith("GLM-5") or model_upper == "GLM-5":
+            # 仅在用户未显式设置时才添加 thinking 参数
+            if "thinking" not in body:
+                body["thinking"] = {"type": "enabled"}
+                print(f"[DEBUG] JDCloud: Injected thinking for {body['model']}")
+            else:
+                print(f"[DEBUG] JDCloud: Thinking already set for {body['model']}")
+
         upstream_url = f'{config["api_base"]}/v1/messages'
         if parsed.query:
             upstream_url = f"{upstream_url}?{parsed.query}"

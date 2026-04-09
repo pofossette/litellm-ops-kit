@@ -338,6 +338,21 @@ class Handler(BaseHTTPRequestHandler):
         model = payload.get("model")
         headers = forward_headers_from_request(self)
 
+        # 为 GLM-5 系列模型开启深度思考模式（主提供商 ZAI）
+        model_upper = model.upper() if model else ""
+        if model_upper.startswith("MY-") or model_upper in ("MY-OPUS", "MY-SONNET", "MY-HAIKU"):
+            # 检查映射后的实际模型名称
+            model_key = ROUTE_TO_MODEL_KEY.get(model, "")
+            if model_key:
+                actual_model = os.environ.get(f"MAIN_{model_key}_MODEL", "").upper()
+                if actual_model.startswith("GLM-5"):
+                    if "thinking" not in payload:
+                        payload["thinking"] = {"type": "enabled"}
+                        # 调试日志
+                        print(f"[DEBUG] Injected thinking for {model} -> {actual_model}")
+                    else:
+                        print(f"[DEBUG] Thinking already set for {model}")
+
         if model in FALLBACK_MODEL_TO_TIER:
             resp = upstream_request(
                 "jdcloud-anthropic-shim",
