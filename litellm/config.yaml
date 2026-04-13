@@ -9,13 +9,13 @@ model_list:
 
   - model_name: openai-high
     litellm_params:
-      model: openai/os.environ/MAIN_OPUS_MODEL
+      model: openai/glm-5.1
       api_base: os.environ/MAIN_OPENAI_API_BASE
       api_key: os.environ/MAIN_OPENAI_API_KEY
 
   - model_name: my-opus-fallback
     litellm_params:
-      model: anthropic/os.environ/FALLBACK_OPUS_MODEL
+      model: anthropic/GLM-5
       api_base: http://jdcloud-anthropic-shim:8081/fallback
       api_key: os.environ/FALLBACK_ANTHROPIC_API_KEY
       extra_headers:
@@ -23,7 +23,7 @@ model_list:
 
   - model_name: openai-high-fallback
     litellm_params:
-      model: openai/os.environ/FALLBACK_OPUS_MODEL
+      model: openai/GLM-5
       api_base: os.environ/FALLBACK_OPENAI_API_BASE
       api_key: os.environ/FALLBACK_OPENAI_API_KEY
 
@@ -37,13 +37,13 @@ model_list:
 
   - model_name: openai-medium
     litellm_params:
-      model: openai/os.environ/MAIN_SONNET_MODEL
+      model: openai/glm-5-turbo
       api_base: os.environ/MAIN_OPENAI_API_BASE
       api_key: os.environ/MAIN_OPENAI_API_KEY
 
   - model_name: my-sonnet-fallback
     litellm_params:
-      model: anthropic/os.environ/FALLBACK_SONNET_MODEL
+      model: anthropic/GLM-5
       api_base: http://jdcloud-anthropic-shim:8081/fallback
       api_key: os.environ/FALLBACK_ANTHROPIC_API_KEY
       extra_headers:
@@ -51,7 +51,7 @@ model_list:
 
   - model_name: openai-medium-fallback
     litellm_params:
-      model: openai/os.environ/FALLBACK_SONNET_MODEL
+      model: openai/GLM-5
       api_base: os.environ/FALLBACK_OPENAI_API_BASE
       api_key: os.environ/FALLBACK_OPENAI_API_KEY
 
@@ -65,13 +65,13 @@ model_list:
 
   - model_name: openai-low
     litellm_params:
-      model: openai/os.environ/MAIN_HAIKU_MODEL
+      model: openai/glm-4.7
       api_base: os.environ/MAIN_OPENAI_API_BASE
       api_key: os.environ/MAIN_OPENAI_API_KEY
 
   - model_name: my-haiku-fallback
     litellm_params:
-      model: anthropic/os.environ/FALLBACK_HAIKU_MODEL
+      model: anthropic/DeepSeek-V3.2
       api_base: http://jdcloud-anthropic-shim:8081/fallback
       api_key: os.environ/FALLBACK_ANTHROPIC_API_KEY
       extra_headers:
@@ -79,7 +79,7 @@ model_list:
 
   - model_name: openai-low-fallback
     litellm_params:
-      model: openai/os.environ/FALLBACK_HAIKU_MODEL
+      model: openai/DeepSeek-V3.2
       api_base: os.environ/FALLBACK_OPENAI_API_BASE
       api_key: os.environ/FALLBACK_OPENAI_API_KEY
 
