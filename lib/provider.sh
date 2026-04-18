@@ -244,6 +244,31 @@ render_anthropic_api_base_value() {
   fi
 }
 
+# Get model-specific or tier-level environment variable name
+# Usage: get_model_or_tier_var PREFIX MODEL_KEY VAR_KEY
+# Returns the variable name that has a value (model-specific takes priority)
+get_model_or_tier_var() {
+  local prefix="$1"      # MAIN, FALLBACK, FALLBACK2, FALLBACK3
+  local model_key="$2"   # OPUS, SONNET, HAIKU
+  local var_key="$3"     # MODEL, ANTHROPIC_API_BASE, ANTHROPIC_API_KEY, etc.
+
+  local model_var="${prefix}_${model_key}_${var_key}"
+  local tier_var="${prefix}_${var_key}"
+
+  # MODEL variables have special naming at tier level
+  if [[ "$var_key" == "MODEL" ]]; then
+    tier_var="${prefix}_${model_key}_MODEL"
+  fi
+
+  # Check if model-specific variable has a value
+  local model_value="${!model_var:-}"
+  if [[ -n "$model_value" ]] && ! is_placeholder_value "$model_value"; then
+    printf '%s' "$model_var"
+  else
+    printf '%s' "$tier_var"
+  fi
+}
+
 render_litellm_config() {
   validate_provider_chain
 
@@ -263,22 +288,37 @@ render_litellm_config() {
         prefix="$(provider_prefix_for_level "$level")"
         if [[ "$(provider_tier_status "$prefix")" == "ready" ]]; then
       model_name="$(route_model_name "$route" "$level")"
+
+      # Get configuration references (model-specific or tier-level)
+      local model_ref api_base_ref api_key_ref api_key_value model_value
+      model_ref="$(get_model_or_tier_var "$prefix" "$route_key" "MODEL")"
+      api_base_ref="$(get_model_or_tier_var "$prefix" "$route_key" "ANTHROPIC_API_BASE")"
+      api_key_ref="$(get_model_or_tier_var "$prefix" "$route_key" "ANTHROPIC_API_KEY")"
+      api_key_value="${!api_key_ref}"
+      model_value="${!model_ref}"
+
+      # Use model-specific or tier-level configuration
+      # Note: model field uses actual value (not os.environ/) because litellm doesn't expand
+      # os.environ references when using custom api_base
       cat <<EOF
   - model_name: ${model_name}
     litellm_params:
-      model: anthropic/os.environ/${prefix}_${route_key}_MODEL
-      api_base: $(render_anthropic_api_base_value "$prefix")
-      api_key: os.environ/${prefix}_ANTHROPIC_API_KEY
+      model: anthropic/${model_value}
+      api_base: os.environ/${api_base_ref}
+      api_key: os.environ/${api_key_ref}
       extra_headers:
-        x-api-key: os.environ/${prefix}_ANTHROPIC_API_KEY
+        x-api-key: os.environ/${api_key_ref}
 
 EOF
           if [[ "$(provider_openai_status "$prefix")" == "ready" ]]; then
-            local openai_route_name="$(route_model_name "$openai_model_name" "$level")"
+            local openai_route_name openai_model_value
+            openai_route_name="$(route_model_name "$openai_model_name" "$level")"
+            openai_model_var="${prefix}_${route_key}_MODEL"
+            openai_model_value="${!openai_model_var}"
             cat <<EOF
   - model_name: ${openai_route_name}
     litellm_params:
-      model: openai/os.environ/${prefix}_${route_key}_MODEL
+      model: openai/${openai_model_value}
       api_base: os.environ/${prefix}_OPENAI_API_BASE
       api_key: os.environ/${prefix}_OPENAI_API_KEY
 

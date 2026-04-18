@@ -1,7 +1,7 @@
 model_list:
   - model_name: my-opus
     litellm_params:
-      model: anthropic/os.environ/MAIN_OPUS_MODEL
+      model: anthropic/glm-5.1
       api_base: os.environ/MAIN_ANTHROPIC_API_BASE
       api_key: os.environ/MAIN_ANTHROPIC_API_KEY
       extra_headers:
@@ -16,7 +16,7 @@ model_list:
   - model_name: my-opus-fallback
     litellm_params:
       model: anthropic/GLM-5
-      api_base: http://jdcloud-anthropic-shim:8081/fallback
+      api_base: os.environ/FALLBACK_ANTHROPIC_API_BASE
       api_key: os.environ/FALLBACK_ANTHROPIC_API_KEY
       extra_headers:
         x-api-key: os.environ/FALLBACK_ANTHROPIC_API_KEY
@@ -29,7 +29,7 @@ model_list:
 
   - model_name: my-sonnet
     litellm_params:
-      model: anthropic/os.environ/MAIN_SONNET_MODEL
+      model: anthropic/glm-5-turbo
       api_base: os.environ/MAIN_ANTHROPIC_API_BASE
       api_key: os.environ/MAIN_ANTHROPIC_API_KEY
       extra_headers:
@@ -44,7 +44,7 @@ model_list:
   - model_name: my-sonnet-fallback
     litellm_params:
       model: anthropic/GLM-5
-      api_base: http://jdcloud-anthropic-shim:8081/fallback
+      api_base: os.environ/FALLBACK_ANTHROPIC_API_BASE
       api_key: os.environ/FALLBACK_ANTHROPIC_API_KEY
       extra_headers:
         x-api-key: os.environ/FALLBACK_ANTHROPIC_API_KEY
@@ -57,29 +57,29 @@ model_list:
 
   - model_name: my-haiku
     litellm_params:
-      model: anthropic/os.environ/MAIN_HAIKU_MODEL
-      api_base: os.environ/MAIN_ANTHROPIC_API_BASE
-      api_key: os.environ/MAIN_ANTHROPIC_API_KEY
+      model: anthropic/cm-code-latest
+      api_base: os.environ/MAIN_HAIKU_ANTHROPIC_API_BASE
+      api_key: os.environ/MAIN_HAIKU_ANTHROPIC_API_KEY
       extra_headers:
-        x-api-key: os.environ/MAIN_ANTHROPIC_API_KEY
+        x-api-key: os.environ/MAIN_HAIKU_ANTHROPIC_API_KEY
 
   - model_name: openai-low
     litellm_params:
-      model: openai/glm-4.7
+      model: openai/cm-code-latest
       api_base: os.environ/MAIN_OPENAI_API_BASE
       api_key: os.environ/MAIN_OPENAI_API_KEY
 
   - model_name: my-haiku-fallback
     litellm_params:
-      model: anthropic/DeepSeek-V3.2
-      api_base: http://jdcloud-anthropic-shim:8081/fallback
-      api_key: os.environ/FALLBACK_ANTHROPIC_API_KEY
+      model: anthropic/cm-code-latest
+      api_base: os.environ/FALLBACK_HAIKU_ANTHROPIC_API_BASE
+      api_key: os.environ/FALLBACK_HAIKU_ANTHROPIC_API_KEY
       extra_headers:
-        x-api-key: os.environ/FALLBACK_ANTHROPIC_API_KEY
+        x-api-key: os.environ/FALLBACK_HAIKU_ANTHROPIC_API_KEY
 
   - model_name: openai-low-fallback
     litellm_params:
-      model: openai/DeepSeek-V3.2
+      model: openai/cm-code-latest
       api_base: os.environ/FALLBACK_OPENAI_API_BASE
       api_key: os.environ/FALLBACK_OPENAI_API_KEY
 
@@ -87,7 +87,6 @@ litellm_settings:
   master_key: os.environ/LITELLM_MASTER_KEY
   drop_params: false
   set_verbose: true
-  allowed_origins: ["http://192.168.5.214:4000", "http://localhost:4000", "http://192.168.5.214:3000", "http://localhost:3000"]
 
 router_settings:
   num_retries: 2

@@ -1,0 +1,16 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+RUN pip install flask requests --no-cache-dir
+
+COPY haiku_proxy.py /app/
+
+ENV PORT=8765
+ENV HAIKU_API_BASE=https://zhenze-huhehaote.cmecloud.cn/api/coding
+ENV HAIKU_API_KEY=40WYEioWUDN7JvE26uu3owMgsf7mpX7y5bdJcPj9Ox4
+ENV HAIKU_MODEL=cm-code-latest
+
+EXPOSE 8765
+
+CMD ["python", "haiku_proxy.py"]

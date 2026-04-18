@@ -29,6 +29,26 @@ services:
     volumes:
       - ./proxy/jdcloud_anthropic_shim.py:/app/jdcloud_anthropic_shim.py:ro
 
+  haiku-proxy:
+    image: python:3.11-slim
+    container_name: litellm-haiku-proxy
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      PORT: 8765
+      HAIKU_API_BASE: https://zhenze-huhehaote.cmecloud.cn/api/coding
+      HAIKU_API_KEY: 40WYEioWUDN7JvE26uu3owMgsf7mpX7y5bdJcPj9Ox4
+      HAIKU_MODEL: cm-code-latest
+    command:
+      - /bin/sh
+      - -c
+      - |
+        pip install flask requests --quiet && \
+        python3 /app/haiku_proxy.py
+    volumes:
+      - ./proxy/haiku_proxy.py:/app/haiku_proxy.py:ro
+
   anthropic-router:
     image: python:3.11-slim
     container_name: litellm-anthropic-router
