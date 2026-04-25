@@ -46,6 +46,9 @@ print_startup_info() {
     ui_kv "LAN"        "http://${host_ip}:${proxy_port}"
     ui_kv "FRP Target" "${host_ip}:${proxy_port}"
     ui_kv "Forwarded"  "$(proxy_forwarded_proto)://${host_ip}"
+    if [[ -n "${PROXY_BASE_URL:-}" ]]; then
+      ui_kv "External" "${PROXY_BASE_URL}"
+    fi
   fi
 
   ui_section "Routing"
@@ -57,6 +60,15 @@ print_startup_info() {
   ui_code "export ANTHROPIC_DEFAULT_OPUS_MODEL=my-opus"
   ui_code "export ANTHROPIC_DEFAULT_SONNET_MODEL=my-sonnet"
   ui_code "export ANTHROPIC_DEFAULT_HAIKU_MODEL=my-haiku"
+  if proxy_enabled && [[ -n "${PROXY_BASE_URL:-}" ]]; then
+    echo ""
+    ui_section "Claude Code env (External)"
+    ui_code "export ANTHROPIC_BASE_URL=${PROXY_BASE_URL}"
+    ui_code "export ANTHROPIC_AUTH_TOKEN=${LITELLM_MASTER_KEY}"
+    ui_code "export ANTHROPIC_DEFAULT_OPUS_MODEL=my-opus"
+    ui_code "export ANTHROPIC_DEFAULT_SONNET_MODEL=my-sonnet"
+    ui_code "export ANTHROPIC_DEFAULT_HAIKU_MODEL=my-haiku"
+  fi
 
   echo ""
   ui_kv "Autostart" "$(ui_status_badge "$autostart_state")"
@@ -233,6 +245,9 @@ cmd_quickstart() {
     ui_kv "Proxy URL"   "${proxy_url}"
     ui_kv "FRP Target"  "${host_ip}:${proxy_port}"
     ui_kv "Forwarded"   "$(proxy_forwarded_proto)://${host_ip}"
+    if [[ -n "${PROXY_BASE_URL:-}" ]]; then
+      ui_kv "External" "${PROXY_BASE_URL}"
+    fi
   fi
 
   ui_section "Web Panel 登录"
@@ -258,6 +273,16 @@ cmd_quickstart() {
   ui_code "export ANTHROPIC_DEFAULT_SONNET_MODEL=my-sonnet"
   ui_code "export ANTHROPIC_DEFAULT_HAIKU_MODEL=my-haiku"
   ui_dotted_divider 46
+  if proxy_enabled && [[ -n "${PROXY_BASE_URL:-}" ]]; then
+    ui_section "Claude Code 外部配置"
+    ui_dotted_divider 46
+    ui_code "export ANTHROPIC_BASE_URL=${PROXY_BASE_URL}"
+    ui_code "export ANTHROPIC_AUTH_TOKEN=${LITELLM_MASTER_KEY}"
+    ui_code "export ANTHROPIC_DEFAULT_OPUS_MODEL=my-opus"
+    ui_code "export ANTHROPIC_DEFAULT_SONNET_MODEL=my-sonnet"
+    ui_code "export ANTHROPIC_DEFAULT_HAIKU_MODEL=my-haiku"
+    ui_dotted_divider 46
+  fi
 
   ui_thick_divider 52
   echo ""

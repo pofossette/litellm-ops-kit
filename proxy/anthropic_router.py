@@ -61,6 +61,19 @@ RETRYABLE_ERROR_KEYWORDS = (
     "余额",
 )
 
+DEFAULT_ALLOWED_ORIGINS = [
+    "http://192.168.5.214:4000",
+    "http://localhost:4000",
+    "http://192.168.5.214:3000",
+    "http://localhost:3000",
+]
+
+
+def load_allowed_origins() -> list[str]:
+    raw = os.environ.get("ALLOWED_ORIGINS", "")
+    parsed = [origin.strip() for origin in raw.split(",") if origin.strip()]
+    return parsed or DEFAULT_ALLOWED_ORIGINS
+
 
 def upstream_request(
     host: str,
@@ -204,12 +217,7 @@ def forward_headers_from_request(handler: BaseHTTPRequestHandler) -> dict[str, s
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
-    ALLOWED_ORIGINS = [
-        "http://192.168.5.214:4000",
-        "http://localhost:4000",
-        "http://192.168.5.214:3000",
-        "http://localhost:3000",
-    ]
+    ALLOWED_ORIGINS = load_allowed_origins()
 
     def _get_cors_headers(self) -> dict[str, str]:
         origin = self.headers.get("Origin", "")
@@ -230,7 +238,7 @@ class Handler(BaseHTTPRequestHandler):
     ) -> None:
         self.send_response(status)
         for key, value in headers:
-            if key.lower() in {"transfer-encoding", "connection", "content-length"}:
+            if key.lower() in {"transfer-encoding", "connection", "content-length", "date", "server"}:
                 continue
             self.send_header(key, value)
 
@@ -248,7 +256,7 @@ class Handler(BaseHTTPRequestHandler):
         try:
             self.send_response(resp.status)
             for key, value in resp.getheaders():
-                if key.lower() in {"transfer-encoding", "connection", "content-length"}:
+                if key.lower() in {"transfer-encoding", "connection", "content-length", "date", "server"}:
                     continue
                 self.send_header(key, value)
 

@@ -42,6 +42,14 @@ proxy_backend_port() {
   printf '%s' "${LITELLM_PORT:-4000}"
 }
 
+proxy_anthropic_host_port() {
+  printf '%s' "${ANTHROPIC_ROUTER_PORT:-4001}"
+}
+
+proxy_timeout() {
+  printf '%s' "${PROXY_TIMEOUT:-120}"
+}
+
 proxy_external_base_url() {
   printf '%s' "${PROXY_BASE_URL:-}"
 }
@@ -140,11 +148,12 @@ validate_proxy_config() {
 }
 
 render_nginx_proxy_config() {
-  local listen_port forward_proto forward_port backend_port
+  local listen_port forward_proto forward_port backend_port timeout
   listen_port="$(proxy_listen_port)"
   forward_proto="$(proxy_forwarded_proto)"
   forward_port="$(proxy_forwarded_port)"
   backend_port="$(proxy_backend_port)"
+  timeout="$(proxy_timeout)"
 
   mkdir -p "$NGINX_DIR"
 
@@ -168,6 +177,25 @@ server {
     listen 8080;
     server_name _;
 
+    location = /v1/messages {
+        proxy_pass http://anthropic-router:4001;
+        proxy_http_version 1.1;
+
+        proxy_set_header Host \$http_host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Host \$http_host;
+        proxy_set_header X-Forwarded-Proto \$litellm_forwarded_proto;
+        proxy_set_header X-Forwarded-Port \$litellm_forwarded_port;
+        proxy_redirect http://\$http_host/ \$litellm_forwarded_proto://\$http_host/;
+
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection \$connection_upgrade;
+
+        proxy_read_timeout ${timeout}s;
+        proxy_send_timeout ${timeout}s;
+    }
+
     location / {
         proxy_pass http://litellm:${backend_port};
         proxy_http_version 1.1;
@@ -182,6 +210,9 @@ server {
 
         proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection \$connection_upgrade;
+
+        proxy_read_timeout ${timeout}s;
+        proxy_send_timeout ${timeout}s;
     }
 }
 EOF
@@ -239,13 +270,20 @@ print_proxy_summary() {
     if [[ "${PROXY_TYPE:-none}" == "external" ]]; then
       ui_kv "Owner"   "user-managed"
       ui_kv "litellm监听端口" "$(proxy_backend_port)"
-      ui_kv "Forward" "configure yourself -> litellm:$(proxy_backend_port)"
+      ui_kv "anthropic-router监听端口" "$(proxy_anthropic_host_port)"
+      ui_kv "Anthropic" "/v1/messages -> 127.0.0.1:$(proxy_anthropic_host_port)"
+      ui_kv "Other" "all other paths -> 127.0.0.1:$(proxy_backend_port)"
     else
       ui_kv "Owner"   "script-managed"
       ui_kv "litellm监听端口" "$(proxy_backend_port)"
-      ui_kv "Forward" "litellm:$(proxy_backend_port)"
+      ui_kv "anthropic-router监听端口" "$(proxy_anthropic_host_port)"
+      ui_kv "Anthropic" "/v1/messages -> anthropic-router:4001"
+      ui_kv "Other" "all other paths -> litellm:$(proxy_backend_port)"
     fi
     ui_kv "Proto"   "$(proxy_forwarded_proto)"
+    if [[ -n "${PROXY_BASE_URL:-}" ]]; then
+      ui_kv "External" "${PROXY_BASE_URL}"
+    fi
   fi
 }
 
@@ -294,12 +332,15 @@ cmd_proxy_configure() {
     external)
       ui_header "External Proxy Guide"
       ui_code "当前模式不会启动任何代理容器。"
-      ui_code "你需要自己维护反代，并把它转发到 LiteLLM 的 $(proxy_backend_port) 端口。"
+      ui_code "你需要自己维护反代，并显式拆分 Anthropic 与 LiteLLM 两条上游。"
+      ui_code "/v1/messages -> 127.0.0.1:$(proxy_anthropic_host_port)"
+      ui_code "其他路径 -> 127.0.0.1:$(proxy_backend_port)"
       ui_code "主流程需要配置 nginx监听端口 和 litellm监听端口。"
-      local listen_port backend_port confirm
+      local listen_port backend_port anthropic_port confirm
       while true; do
         listen_port="$(prompt_port_value "nginx监听端口" "$(env_get "PROXY_LISTEN_PORT")" "8080")"
         backend_port="$(prompt_port_value "litellm监听端口" "$(env_get "LITELLM_PORT")" "4000")"
+        anthropic_port="$(prompt_port_value "anthropic-router监听端口" "$(env_get "ANTHROPIC_ROUTER_PORT")" "4001")"
         if [[ "$listen_port" != "$backend_port" ]]; then
           break
         fi
@@ -310,8 +351,10 @@ cmd_proxy_configure() {
       ui_kv "Type"   "external"
       ui_kv "nginx监听端口" "${listen_port}"
       ui_kv "litellm监听端口" "${backend_port}"
+      ui_kv "anthropic-router监听端口" "${anthropic_port}"
       ui_kv "Proto"  "$(env_get "PROXY_FORWARD_PROTO" | sed 's/^$/https/')"
-      ui_kv "Next"   "你自己配置反代 -> litellm:${backend_port}"
+      ui_kv "Anthropic" "/v1/messages -> 127.0.0.1:${anthropic_port}"
+      ui_kv "Other" "all other paths -> 127.0.0.1:${backend_port}"
       read -rp "Apply proxy changes? [Y/n]: " confirm
       confirm="${confirm:-Y}"
       if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
@@ -322,20 +365,22 @@ cmd_proxy_configure() {
       env_batch_set "PROXY_TYPE" "external"
       env_batch_set "PROXY_LISTEN_PORT" "$listen_port"
       env_batch_set "LITELLM_PORT" "$backend_port"
+      env_batch_set "ANTHROPIC_ROUTER_PORT" "$anthropic_port"
       env_batch_set "PROXY_FORWARD_PROTO" "${PROXY_FORWARD_PROTO:-https}"
       env_batch_set "PROXY_FORWARD_PORT" ""
       env_batch_apply
-      ui_info "Proxy service remains user-managed. Configure it yourself to forward to LiteLLM on ${backend_port}."
+      ui_info "Proxy service remains user-managed. Route /v1/messages to ${anthropic_port}, and everything else to ${backend_port}."
       ui_success "External reverse proxy metadata updated."
       ;;
     nginx)
       ui_header "Managed Nginx Guide"
-      ui_code "推荐链路: 浏览器 -> SakuraFRP -> nginx:8080 -> litellm:$(proxy_backend_port)"
+      ui_code "推荐链路: 浏览器 -> SakuraFRP -> nginx:8080 -> (/v1/messages -> anthropic-router:4001, other -> litellm:$(proxy_backend_port))"
       ui_code "主流程需要配置 nginx监听端口 和 litellm监听端口。"
-      local listen_port backend_port confirm
+      local listen_port backend_port anthropic_port confirm
       while true; do
         listen_port="$(prompt_port_value "nginx监听端口" "$(env_get "PROXY_LISTEN_PORT")" "8080")"
         backend_port="$(prompt_port_value "litellm监听端口" "$(env_get "LITELLM_PORT")" "4000")"
+        anthropic_port="$(prompt_port_value "anthropic-router监听端口" "$(env_get "ANTHROPIC_ROUTER_PORT")" "4001")"
         if [[ "$listen_port" != "$backend_port" ]]; then
           break
         fi
@@ -346,7 +391,9 @@ cmd_proxy_configure() {
       ui_kv "Type"    "nginx"
       ui_kv "nginx监听端口"  "${listen_port}"
       ui_kv "litellm监听端口" "${backend_port}"
-      ui_kv "Forward" "litellm:${backend_port}"
+      ui_kv "anthropic-router监听端口" "${anthropic_port}"
+      ui_kv "Anthropic" "/v1/messages -> anthropic-router:4001"
+      ui_kv "Other" "all other paths -> litellm:${backend_port}"
       ui_kv "Proto"   "${PROXY_FORWARD_PROTO:-https}"
       ui_kv "FRP"     "把 SakuraFRP 本地目标端口改成 ${listen_port}"
       read -rp "Apply proxy changes? [Y/n]: " confirm
@@ -359,6 +406,7 @@ cmd_proxy_configure() {
       env_batch_set "PROXY_TYPE" "nginx"
       env_batch_set "PROXY_LISTEN_PORT" "$listen_port"
       env_batch_set "LITELLM_PORT" "$backend_port"
+      env_batch_set "ANTHROPIC_ROUTER_PORT" "$anthropic_port"
       env_batch_set "PROXY_FORWARD_PROTO" "${PROXY_FORWARD_PROTO:-https}"
       env_batch_set "PROXY_FORWARD_PORT" ""
       env_batch_apply
